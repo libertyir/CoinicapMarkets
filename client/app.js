@@ -4,6 +4,10 @@ const translations = {
     title: "بازارها", subtitle: "قیمت‌های تجمیعی از صرافی‌های ایرانی", connecting: "در حال اتصال",
     latest: "آخرین قیمت‌ها", exchange: "صرافی", type: "نوع", market: "نماد خروجی",
     timeframe: "تایم‌فریم", sampleTime: "زمان نمونه", status: "وضعیت", loading: "دریافت اطلاعات…",
+    aggregateTitle: "میانگین بازارها", indexTitle: "شاخص برآوردی تتر", exchangeIndexTitle: "شاخص هر صرافی",
+    componentsTitle: "نرخ‌های محاسباتی هر کوین", scope: "گروه", contributors: "تعداد صرافی",
+    direct: "نرخ مستقیم", gap: "اختلاف ٪", assets: "تعداد کوین", asset: "کوین", all: "همهٔ صرافی‌ها",
+    noDerivedData: "هنوز دادهٔ محاسباتی ثبت نشده است.",
     apiNote: "API مستقل است؛ نشانی آن در فایل config.js تنظیم می‌شود.", empty: "هنوز داده‌ای ثبت نشده است.",
     connected: "متصل", unavailable: "API در دسترس نیست", connectionError: "ارتباط با API برقرار نشد.",
     fresh: "به‌روز", stale: "قدیمی", cex: "متمرکز (CEX)", otc: "معامله مستقیم (OTC)", hybrid: "ترکیبی"
@@ -12,6 +16,10 @@ const translations = {
     title: "Markets", subtitle: "Aggregated prices from Iranian exchanges", connecting: "Connecting",
     latest: "Latest prices", exchange: "Exchange", type: "Type", market: "Output symbol",
     timeframe: "Timeframe", sampleTime: "Sample time", status: "Status", loading: "Loading data…",
+    aggregateTitle: "Market aggregates", indexTitle: "Estimated USDT index", exchangeIndexTitle: "Index by exchange",
+    componentsTitle: "Per-coin implied rates", scope: "Group", contributors: "Exchanges",
+    direct: "Direct rate", gap: "Gap %", assets: "Coins", asset: "Asset", all: "All exchanges",
+    noDerivedData: "No calculated data has been recorded yet.",
     apiNote: "The API is separate; set its URL in config.js.", empty: "No data has been recorded yet.",
     connected: "Connected", unavailable: "API unavailable", connectionError: "Could not connect to the API.",
     fresh: "Fresh", stale: "Stale", cex: "Centralized (CEX)", otc: "Over-the-counter (OTC)", hybrid: "Hybrid"
@@ -24,6 +32,7 @@ const updatedAt = document.querySelector("#updated-at");
 let language = localStorage.getItem("coinicap-language") || "fa";
 if (!translations[language]) language = "fa";
 let latestQuotes = [];
+let latestDerived = null;
 
 function t(key) { return translations[language][key] || key; }
 
@@ -37,8 +46,95 @@ function setLanguage(nextLanguage) {
   });
   document.querySelector("#language-toggle").textContent = language === "fa" ? "English" : "فارسی";
   if (latestQuotes.length) renderQuotes(latestQuotes);
+  if (latestDerived) renderDerived(latestDerived);
   if (connectionState.dataset.state === "connected") connectionState.textContent = t("connected");
   if (connectionState.dataset.state === "unavailable") connectionState.textContent = t("unavailable");
+}
+
+function addRow(table, values) {
+  const row = document.createElement("tr");
+  for (const value of values) row.append(safeCell(value));
+  table.append(row);
+}
+
+function showEmpty(table, columns) {
+  const row = document.createElement("tr");
+  const cell = safeCell(t("noDerivedData"));
+  cell.colSpan = columns;
+  cell.className = "text-center text-secondary py-4";
+  row.append(cell);
+  table.replaceChildren(row);
+}
+
+function groupName(type, key) {
+  if (type === "all") return t("all");
+  if (type === "exchange_type") return t(key);
+  return key;
+}
+
+function renderDerived(data) {
+  const aggregates = document.querySelector("#aggregates");
+  const indices = document.querySelector("#indices");
+  const exchangeIndices = document.querySelector("#exchange-indices");
+  const components = document.querySelector("#components");
+  aggregates.replaceChildren();
+  indices.replaceChildren();
+  exchangeIndices.replaceChildren();
+  components.replaceChildren();
+
+  if (!data.aggregates.length) showEmpty(aggregates, 11);
+  for (const item of data.aggregates) addRow(aggregates, [
+    item.market, groupName(item.scope_type, item.scope_key), item.timeframe, item.price,
+    item.high_price, item.low_price, item.open_price, item.close_price,
+    item.volume, item.value, item.exchange_count
+  ]);
+
+  if (!data.indices.length) showEmpty(indices, 12);
+  for (const item of data.indices) addRow(indices, [
+    groupName(item.scope_type, item.scope_key), item.timeframe, item.index?.price,
+    item.index?.high_price, item.index?.low_price, item.index?.open_price,
+    item.index?.close_price, item.direct_usdt_tmn?.price, item.gap_percent, item.index?.value,
+    item.index?.exchange_count, item.index?.asset_count
+  ]);
+
+  if (!data.exchangeIndices.length) showEmpty(exchangeIndices, 9);
+  for (const item of data.exchangeIndices) addRow(exchangeIndices, [
+    language === "fa" ? item.exchange_name_fa : item.exchange_name_en,
+    t(item.exchange_type), item.price, item.high_price, item.low_price,
+    item.open_price, item.close_price, item.value, item.asset_count
+  ]);
+
+  if (!data.components.length) showEmpty(components, 9);
+  for (const item of data.components) addRow(components, [
+    language === "fa" ? item.exchange_name_fa : item.exchange_name_en,
+    t(item.exchange_type), item.asset, item.timeframe, item.price,
+    item.high_price, item.low_price, item.value,
+    new Date(Math.max(item.toman_collected_at_ms, item.usdt_collected_at_ms))
+      .toLocaleTimeString(language === "fa" ? "fa-IR" : "en-US")
+  ]);
+}
+
+async function loadDerived() {
+  const read = async (path) => {
+    const response = await fetch(`${apiBaseUrl}${path}`);
+    if (!response.ok) throw new Error("derived_api_unavailable");
+    return response.json();
+  };
+  try {
+    const [aggregates, all, cex, otc, exchangeIndices, components] = await Promise.all([
+      read("/api/v1/aggregates/latest?timeframe=5m"),
+      read("/api/v1/estimates/usdt-tmn?timeframe=5m"),
+      read("/api/v1/estimates/usdt-tmn?timeframe=5m&type=cex"),
+      read("/api/v1/estimates/usdt-tmn?timeframe=5m&type=otc"),
+      read("/api/v1/estimates/usdt-tmn/exchanges?timeframe=5m"),
+      read("/api/v1/estimates/usdt-tmn/components?timeframe=5m")
+    ]);
+    latestDerived = { aggregates, indices: [all, cex, otc], exchangeIndices, components };
+    renderDerived(latestDerived);
+  } catch {
+    latestDerived = { aggregates: [], indices: [], exchangeIndices: [], components: [] };
+    renderDerived(latestDerived);
+  }
 }
 
 function safeCell(value) {
@@ -103,4 +199,6 @@ document.querySelector("#language-toggle").addEventListener("click", () => {
 });
 setLanguage(language);
 loadQuotes();
+loadDerived();
 setInterval(loadQuotes, 60_000);
+setInterval(loadDerived, 60_000);

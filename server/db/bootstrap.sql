@@ -47,8 +47,8 @@ CREATE TABLE IF NOT EXISTS assets (
   id INTEGER PRIMARY KEY,
   code TEXT NOT NULL UNIQUE,
   name TEXT NOT NULL,
-  name_fa TEXT,
-  name_en TEXT,
+  name_fa TEXT NOT NULL,
+  name_en TEXT NOT NULL,
   enabled INTEGER NOT NULL DEFAULT 1 CHECK (enabled IN (0, 1)),
   display_order INTEGER NOT NULL DEFAULT 0,
   created_at_ms INTEGER NOT NULL,
@@ -61,8 +61,8 @@ CREATE TABLE IF NOT EXISTS markets (
   code TEXT NOT NULL UNIQUE,
   base_asset_id INTEGER NOT NULL REFERENCES assets(id),
   quote_asset_id INTEGER NOT NULL REFERENCES assets(id),
-  display_name_fa TEXT,
-  display_name_en TEXT,
+  display_name_fa TEXT NOT NULL,
+  display_name_en TEXT NOT NULL,
   enabled INTEGER NOT NULL DEFAULT 1 CHECK (enabled IN (0, 1)),
   display_order INTEGER NOT NULL DEFAULT 0,
   price_precision INTEGER NOT NULL DEFAULT 8,
@@ -101,6 +101,7 @@ CREATE TABLE IF NOT EXISTS exchange_api_endpoints (
   body_template_json TEXT,
   response_items_path TEXT,
   response_field_map_json TEXT NOT NULL DEFAULT '{}',
+  volume_unit TEXT NOT NULL DEFAULT 'unknown' CHECK (volume_unit IN ('base', 'quote', 'unknown')),
   secret_refs_json TEXT NOT NULL DEFAULT '{}',
   poll_interval_seconds INTEGER NOT NULL DEFAULT 300 CHECK (poll_interval_seconds >= 300),
   timeout_ms INTEGER NOT NULL DEFAULT 10000 CHECK (timeout_ms BETWEEN 1000 AND 30000),
@@ -143,6 +144,7 @@ CREATE TABLE IF NOT EXISTS market_data_samples (
   open_price TEXT,
   close_price TEXT,
   volume TEXT,
+  value TEXT,
   top_price TEXT,
   low_price TEXT,
   UNIQUE(exchange_market_id, timeframe_id, source_open_time_ms, collected_at_ms)
@@ -164,6 +166,72 @@ CREATE TABLE IF NOT EXISTS collection_runs (
   error_summary TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_collection_runs_recent ON collection_runs(started_at_ms DESC);
+
+-- Materialized snapshots are recalculated after successful exchange fetches.
+-- Scope is one exchange, one exchange type, or all exchanges.
+CREATE TABLE IF NOT EXISTS computed_market_samples (
+  id INTEGER PRIMARY KEY,
+  scope_type TEXT NOT NULL CHECK (scope_type IN ('exchange', 'exchange_type', 'all')),
+  scope_key TEXT NOT NULL,
+  market_id INTEGER NOT NULL REFERENCES markets(id),
+  timeframe_id INTEGER NOT NULL REFERENCES timeframes(id),
+  calculated_at_ms INTEGER NOT NULL,
+  price TEXT,
+  open_price TEXT,
+  close_price TEXT,
+  high_price TEXT,
+  low_price TEXT,
+  volume TEXT,
+  value TEXT,
+  exchange_count INTEGER NOT NULL DEFAULT 0,
+  source_oldest_at_ms INTEGER,
+  source_newest_at_ms INTEGER,
+  UNIQUE(scope_type, scope_key, market_id, timeframe_id, calculated_at_ms)
+);
+CREATE INDEX IF NOT EXISTS idx_computed_market_latest
+  ON computed_market_samples(scope_type, scope_key, market_id, timeframe_id, calculated_at_ms DESC);
+
+-- One implied USDT/TMN rate per exchange and coin pair, retained for audit/history.
+CREATE TABLE IF NOT EXISTS usdt_index_component_samples (
+  id INTEGER PRIMARY KEY,
+  exchange_id INTEGER NOT NULL REFERENCES exchanges(id),
+  asset_id INTEGER NOT NULL REFERENCES assets(id),
+  timeframe_id INTEGER NOT NULL REFERENCES timeframes(id),
+  calculated_at_ms INTEGER NOT NULL,
+  price TEXT NOT NULL,
+  open_price TEXT,
+  close_price TEXT,
+  high_price TEXT,
+  low_price TEXT,
+  value TEXT,
+  toman_sample_id INTEGER NOT NULL REFERENCES market_data_samples(id),
+  usdt_sample_id INTEGER NOT NULL REFERENCES market_data_samples(id),
+  UNIQUE(exchange_id, asset_id, timeframe_id, calculated_at_ms)
+);
+CREATE INDEX IF NOT EXISTS idx_usdt_component_latest
+  ON usdt_index_component_samples(exchange_id, timeframe_id, calculated_at_ms DESC);
+
+-- Per-exchange indices, then CEX/OTC/all indices built from the per-exchange rows.
+CREATE TABLE IF NOT EXISTS usdt_index_samples (
+  id INTEGER PRIMARY KEY,
+  scope_type TEXT NOT NULL CHECK (scope_type IN ('exchange', 'exchange_type', 'all')),
+  scope_key TEXT NOT NULL,
+  timeframe_id INTEGER NOT NULL REFERENCES timeframes(id),
+  calculated_at_ms INTEGER NOT NULL,
+  price TEXT,
+  open_price TEXT,
+  close_price TEXT,
+  high_price TEXT,
+  low_price TEXT,
+  value TEXT,
+  exchange_count INTEGER NOT NULL DEFAULT 0,
+  asset_count INTEGER NOT NULL DEFAULT 0,
+  source_oldest_at_ms INTEGER,
+  source_newest_at_ms INTEGER,
+  UNIQUE(scope_type, scope_key, timeframe_id, calculated_at_ms)
+);
+CREATE INDEX IF NOT EXISTS idx_usdt_index_latest
+  ON usdt_index_samples(scope_type, scope_key, timeframe_id, calculated_at_ms DESC);
 
 -- Passwords use a salted PBKDF2 hash. API tokens are random secrets; store only
 -- their SHA-256 hash, scopes, expiry, and revocation state.
@@ -235,8 +303,9 @@ WITH pairs(code, base_code, quote_code, position, precision) AS (VALUES
   ('TRXUSDT', 'TRX', 'USDT', 70, 6), ('TRXTMN', 'TRX', 'TMN', 80, 0),
   ('USDTTMN', 'USDT', 'TMN', 90, 0), ('USDCTMN', 'USDC', 'TMN', 100, 0)
 )
-INSERT OR IGNORE INTO markets (code, base_asset_id, quote_asset_id, enabled, display_order, price_precision, created_at_ms, updated_at_ms)
-SELECT pair.code, base.id, quote.id, 1, pair.position, pair.precision,
+INSERT OR IGNORE INTO markets (code, base_asset_id, quote_asset_id, display_name_fa, display_name_en, enabled, display_order, price_precision, created_at_ms, updated_at_ms)
+SELECT pair.code, base.id, quote.id, base.name_fa || ' / ' || quote.name_fa,
+       base.name_en || ' / ' || quote.name_en, 1, pair.position, pair.precision,
        unixepoch() * 1000, unixepoch() * 1000
 FROM pairs pair
 JOIN assets base ON base.code=pair.base_code

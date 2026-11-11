@@ -29,6 +29,42 @@
           </table>
         </div>
       </section>
+      <section class="card border-0 shadow-sm mt-4">
+        <div class="card-header bg-white py-3"><strong data-i18n="aggregateTitle">میانگین بازارها</strong></div>
+        <div class="table-responsive">
+          <table class="table table-hover align-middle mb-0">
+            <thead><tr><th data-i18n="market">نماد خروجی</th><th data-i18n="scope">گروه</th><th data-i18n="timeframe">تایم‌فریم</th><th>Price</th><th>High</th><th>Low</th><th>Open</th><th>Close</th><th>Volume</th><th>Value</th><th data-i18n="contributors">تعداد صرافی</th></tr></thead>
+            <tbody id="aggregates"><tr><td colspan="11" class="text-center text-secondary py-4" data-i18n="loading">دریافت اطلاعات…</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+      <section class="card border-0 shadow-sm mt-4">
+        <div class="card-header bg-white py-3"><strong data-i18n="indexTitle">شاخص برآوردی تتر</strong></div>
+        <div class="table-responsive">
+          <table class="table table-hover align-middle mb-0">
+            <thead><tr><th data-i18n="scope">گروه</th><th data-i18n="timeframe">تایم‌فریم</th><th>Price</th><th>High</th><th>Low</th><th>Open</th><th>Close</th><th data-i18n="direct">نرخ مستقیم</th><th data-i18n="gap">Gap %</th><th>Value</th><th data-i18n="contributors">تعداد صرافی</th><th data-i18n="assets">تعداد کوین</th></tr></thead>
+            <tbody id="indices"><tr><td colspan="12" class="text-center text-secondary py-4" data-i18n="loading">دریافت اطلاعات…</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+      <section class="card border-0 shadow-sm mt-4">
+        <div class="card-header bg-white py-3"><strong data-i18n="exchangeIndexTitle">شاخص هر صرافی</strong></div>
+        <div class="table-responsive">
+          <table class="table table-hover align-middle mb-0">
+            <thead><tr><th data-i18n="exchange">صرافی</th><th data-i18n="type">نوع</th><th>Price</th><th>High</th><th>Low</th><th>Open</th><th>Close</th><th>Value</th><th data-i18n="assets">تعداد کوین</th></tr></thead>
+            <tbody id="exchange-indices"><tr><td colspan="9" class="text-center text-secondary py-4" data-i18n="loading">دریافت اطلاعات…</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+      <section class="card border-0 shadow-sm mt-4">
+        <div class="card-header bg-white py-3"><strong data-i18n="componentsTitle">نرخ‌های محاسباتی هر کوین</strong></div>
+        <div class="table-responsive">
+          <table class="table table-hover align-middle mb-0">
+            <thead><tr><th data-i18n="exchange">صرافی</th><th data-i18n="type">نوع</th><th data-i18n="asset">کوین</th><th data-i18n="timeframe">تایم‌فریم</th><th>USDT/TMN</th><th>High</th><th>Low</th><th>Value</th><th data-i18n="sampleTime">زمان نمونه</th></tr></thead>
+            <tbody id="components"><tr><td colspan="9" class="text-center text-secondary py-4" data-i18n="loading">دریافت اطلاعات…</td></tr></tbody>
+          </table>
+        </div>
+      </section>
       <p id="message" class="small text-secondary mt-3" data-i18n="apiNote">API مستقل است؛ نشانی آن در فایل config.js تنظیم می‌شود.</p>
     </main>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
