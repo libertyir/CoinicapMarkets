@@ -21,12 +21,31 @@ paths:
       responses:
         '200':
           description: Enabled exchange list
+  /api/v1/assets:
+    get:
+      summary: List enabled assets
+      responses:
+        '200':
+          description: Coins/currencies with type and Persian/English names
   /api/v1/markets:
     get:
       summary: List enabled canonical markets
       responses:
         '200':
           description: Enabled markets
+  /api/v1/exchange-markets:
+    get:
+      summary: List venue pair mappings and safe request configuration
+      parameters:
+        - in: query
+          name: exchange
+          schema: { type: string }
+        - in: query
+          name: market
+          schema: { type: string }
+      responses:
+        '200':
+          description: Native symbol, endpoint template, field mapping and timeframe interval
   /api/v1/timeframes:
     get:
       summary: List enabled output timeframes
@@ -105,6 +124,126 @@ paths:
       responses:
         '200':
           description: Means, cross-exchange high/low, volume/value sums, and contributor counts
+  /api/v1/aggregates/series:
+    get:
+      summary: Get stored cross-exchange aggregate history
+      parameters:
+        - in: query
+          name: market
+          required: true
+          schema: { type: string }
+        - in: query
+          name: timeframe
+          required: true
+          schema: { type: string }
+        - in: query
+          name: type
+          schema: { type: string, enum: [cex, otc, hybrid] }
+        - in: query
+          name: from
+          required: true
+          description: Inclusive Unix timestamp in milliseconds; range up to 90 days
+          schema: { type: integer }
+        - in: query
+          name: to
+          required: true
+          schema: { type: integer }
+      responses:
+        '200':
+          description: Stored all/type aggregate rows
+        '400':
+          description: Invalid parameters or date range
+  /api/v1/indices:
+    get:
+      summary: List enabled configurable price indices
+      responses:
+        '200':
+          description: Index definitions and component pair mappings
+  /api/v1/indices/{code}:
+    get:
+      summary: Get one calculated index and direct-market comparison
+      parameters:
+        - in: path
+          name: code
+          required: true
+          schema: { type: string }
+        - in: query
+          name: timeframe
+          schema: { type: string, default: 5m }
+        - in: query
+          name: type
+          schema: { type: string, enum: [cex, otc, hybrid] }
+        - in: query
+          name: exchange
+          schema: { type: string }
+      responses:
+        '200':
+          description: Index, direct quote, gap percentage and quality flags
+  /api/v1/indices/{code}/components:
+    get:
+      summary: Get per-exchange component rates for one index
+      parameters:
+        - in: path
+          name: code
+          required: true
+          schema: { type: string }
+        - in: query
+          name: timeframe
+          schema: { type: string, default: 5m }
+        - in: query
+          name: type
+          schema: { type: string, enum: [cex, otc, hybrid] }
+        - in: query
+          name: exchange
+          schema: { type: string }
+      responses:
+        '200':
+          description: Component implied rates and source timestamps
+  /api/v1/indices/{code}/exchanges:
+    get:
+      summary: Get one index for each exchange
+      parameters:
+        - in: path
+          name: code
+          required: true
+          schema: { type: string }
+        - in: query
+          name: timeframe
+          schema: { type: string, default: 5m }
+      responses:
+        '200':
+          description: Per-exchange index prices with CEX/OTC classification
+  /api/v1/indices/{code}/series:
+    get:
+      summary: Get stored calculated index history and direct-market gap
+      parameters:
+        - in: path
+          name: code
+          required: true
+          schema: { type: string }
+        - in: query
+          name: timeframe
+          schema: { type: string, default: 5m }
+        - in: query
+          name: type
+          schema: { type: string, enum: [cex, otc, hybrid] }
+        - in: query
+          name: exchange
+          schema: { type: string }
+        - in: query
+          name: from
+          required: true
+          description: Inclusive Unix timestamp in milliseconds; range up to 90 days
+          schema: { type: integer }
+        - in: query
+          name: to
+          required: true
+          schema: { type: integer }
+      responses:
+        '200':
+          description: Index samples, direct market comparison, and percentage gap
+        '400':
+          description: Invalid parameters or date range
   /api/v1/estimates/usdt-tmn:
     get:
       summary: Direct and implied USDT/TMN index

@@ -47,6 +47,7 @@ CREATE TABLE IF NOT EXISTS assets (
   id INTEGER PRIMARY KEY,
   code TEXT NOT NULL UNIQUE,
   name TEXT NOT NULL,
+  asset_type TEXT NOT NULL DEFAULT 'crypto' CHECK (asset_type IN ('crypto', 'stablecoin', 'fiat')),
   name_fa TEXT NOT NULL,
   name_en TEXT NOT NULL,
   enabled INTEGER NOT NULL DEFAULT 1 CHECK (enabled IN (0, 1)),
@@ -70,6 +71,33 @@ CREATE TABLE IF NOT EXISTS markets (
   updated_at_ms INTEGER NOT NULL,
   UNIQUE(base_asset_id, quote_asset_id),
   CHECK (base_asset_id <> quote_asset_id)
+);
+
+-- A quote-currency index is configured as data. Each component names the two
+-- canonical pairs used for its cross-rate, so adding DAI/TMN needs no new logic.
+CREATE TABLE IF NOT EXISTS index_definitions (
+  id INTEGER PRIMARY KEY,
+  code TEXT NOT NULL UNIQUE,
+  base_asset_id INTEGER NOT NULL REFERENCES assets(id),
+  quote_asset_id INTEGER NOT NULL REFERENCES assets(id),
+  direct_market_id INTEGER NOT NULL REFERENCES markets(id),
+  method_key TEXT NOT NULL DEFAULT 'cross_rate_mean' CHECK (method_key IN ('cross_rate_mean')),
+  name_fa TEXT NOT NULL,
+  name_en TEXT NOT NULL,
+  enabled INTEGER NOT NULL DEFAULT 1 CHECK (enabled IN (0, 1)),
+  display_order INTEGER NOT NULL DEFAULT 0,
+  created_at_ms INTEGER NOT NULL,
+  updated_at_ms INTEGER NOT NULL,
+  UNIQUE(base_asset_id, quote_asset_id)
+);
+CREATE TABLE IF NOT EXISTS index_definition_components (
+  index_definition_id INTEGER NOT NULL REFERENCES index_definitions(id) ON DELETE CASCADE,
+  asset_id INTEGER NOT NULL REFERENCES assets(id),
+  numerator_market_id INTEGER NOT NULL REFERENCES markets(id),
+  denominator_market_id INTEGER NOT NULL REFERENCES markets(id),
+  enabled INTEGER NOT NULL DEFAULT 1 CHECK (enabled IN (0, 1)),
+  display_order INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY(index_definition_id, asset_id)
 );
 
 -- `native_symbol` is the exact symbol used by this exchange, not our output symbol.
@@ -191,9 +219,10 @@ CREATE TABLE IF NOT EXISTS computed_market_samples (
 CREATE INDEX IF NOT EXISTS idx_computed_market_latest
   ON computed_market_samples(scope_type, scope_key, market_id, timeframe_id, calculated_at_ms DESC);
 
--- One implied USDT/TMN rate per exchange and coin pair, retained for audit/history.
-CREATE TABLE IF NOT EXISTS usdt_index_component_samples (
+-- One implied rate per configured index, exchange, and component asset.
+CREATE TABLE IF NOT EXISTS price_index_component_samples (
   id INTEGER PRIMARY KEY,
+  index_definition_id INTEGER NOT NULL REFERENCES index_definitions(id),
   exchange_id INTEGER NOT NULL REFERENCES exchanges(id),
   asset_id INTEGER NOT NULL REFERENCES assets(id),
   timeframe_id INTEGER NOT NULL REFERENCES timeframes(id),
@@ -204,16 +233,17 @@ CREATE TABLE IF NOT EXISTS usdt_index_component_samples (
   high_price TEXT,
   low_price TEXT,
   value TEXT,
-  toman_sample_id INTEGER NOT NULL REFERENCES market_data_samples(id),
-  usdt_sample_id INTEGER NOT NULL REFERENCES market_data_samples(id),
-  UNIQUE(exchange_id, asset_id, timeframe_id, calculated_at_ms)
+  numerator_sample_id INTEGER NOT NULL REFERENCES market_data_samples(id),
+  denominator_sample_id INTEGER NOT NULL REFERENCES market_data_samples(id),
+  UNIQUE(index_definition_id, exchange_id, asset_id, timeframe_id, calculated_at_ms)
 );
-CREATE INDEX IF NOT EXISTS idx_usdt_component_latest
-  ON usdt_index_component_samples(exchange_id, timeframe_id, calculated_at_ms DESC);
+CREATE INDEX IF NOT EXISTS idx_price_index_component_latest
+  ON price_index_component_samples(index_definition_id, exchange_id, timeframe_id, calculated_at_ms DESC);
 
 -- Per-exchange indices, then CEX/OTC/all indices built from the per-exchange rows.
-CREATE TABLE IF NOT EXISTS usdt_index_samples (
+CREATE TABLE IF NOT EXISTS price_index_samples (
   id INTEGER PRIMARY KEY,
+  index_definition_id INTEGER NOT NULL REFERENCES index_definitions(id),
   scope_type TEXT NOT NULL CHECK (scope_type IN ('exchange', 'exchange_type', 'all')),
   scope_key TEXT NOT NULL,
   timeframe_id INTEGER NOT NULL REFERENCES timeframes(id),
@@ -228,10 +258,10 @@ CREATE TABLE IF NOT EXISTS usdt_index_samples (
   asset_count INTEGER NOT NULL DEFAULT 0,
   source_oldest_at_ms INTEGER,
   source_newest_at_ms INTEGER,
-  UNIQUE(scope_type, scope_key, timeframe_id, calculated_at_ms)
+    UNIQUE(index_definition_id, scope_type, scope_key, timeframe_id, calculated_at_ms)
 );
-CREATE INDEX IF NOT EXISTS idx_usdt_index_latest
-  ON usdt_index_samples(scope_type, scope_key, timeframe_id, calculated_at_ms DESC);
+CREATE INDEX IF NOT EXISTS idx_price_index_latest
+  ON price_index_samples(index_definition_id, scope_type, scope_key, timeframe_id, calculated_at_ms DESC);
 
 -- Passwords use a salted PBKDF2 hash. API tokens are random secrets; store only
 -- their SHA-256 hash, scopes, expiry, and revocation state.
@@ -262,14 +292,14 @@ CREATE TABLE IF NOT EXISTS api_tokens (
 CREATE INDEX IF NOT EXISTS idx_api_tokens_user ON api_tokens(user_id, enabled);
 
 -- Canonical starting assets and markets. Exchange rows/native symbols are configured later.
-INSERT OR IGNORE INTO assets (code, name, name_fa, name_en, enabled, display_order, created_at_ms, updated_at_ms) VALUES
-  ('BTC', 'Bitcoin', 'بیت‌کوین', 'Bitcoin', 1, 10, unixepoch() * 1000, unixepoch() * 1000),
-  ('ETH', 'Ethereum', 'اتریوم', 'Ethereum', 1, 20, unixepoch() * 1000, unixepoch() * 1000),
-  ('BNB', 'BNB', 'بایننس کوین', 'BNB', 1, 30, unixepoch() * 1000, unixepoch() * 1000),
-  ('TRX', 'TRON', 'ترون', 'TRON', 1, 40, unixepoch() * 1000, unixepoch() * 1000),
-  ('USDT', 'Tether', 'تتر', 'Tether', 1, 50, unixepoch() * 1000, unixepoch() * 1000),
-  ('USDC', 'USD Coin', 'یو‌اس‌دی کوین', 'USD Coin', 1, 60, unixepoch() * 1000, unixepoch() * 1000),
-  ('TMN', 'Toman', 'تومان', 'Toman', 1, 90, unixepoch() * 1000, unixepoch() * 1000);
+INSERT OR IGNORE INTO assets (code, name, asset_type, name_fa, name_en, enabled, display_order, created_at_ms, updated_at_ms) VALUES
+  ('BTC', 'Bitcoin', 'crypto', 'بیت‌کوین', 'Bitcoin', 1, 10, unixepoch() * 1000, unixepoch() * 1000),
+  ('ETH', 'Ethereum', 'crypto', 'اتریوم', 'Ethereum', 1, 20, unixepoch() * 1000, unixepoch() * 1000),
+  ('BNB', 'BNB', 'crypto', 'بایننس کوین', 'BNB', 1, 30, unixepoch() * 1000, unixepoch() * 1000),
+  ('TRX', 'TRON', 'crypto', 'ترون', 'TRON', 1, 40, unixepoch() * 1000, unixepoch() * 1000),
+  ('USDT', 'Tether', 'stablecoin', 'تتر', 'Tether', 1, 50, unixepoch() * 1000, unixepoch() * 1000),
+  ('USDC', 'USD Coin', 'stablecoin', 'یو‌اس‌دی کوین', 'USD Coin', 1, 60, unixepoch() * 1000, unixepoch() * 1000),
+  ('TMN', 'Toman', 'fiat', 'تومان', 'Toman', 1, 90, unixepoch() * 1000, unixepoch() * 1000);
 
 -- The four initial venues selected by the owner. No unverified native symbols
 -- or endpoint mappings are seeded here; those are added after adapter research.
@@ -310,3 +340,27 @@ SELECT pair.code, base.id, quote.id, base.name_fa || ' / ' || quote.name_fa,
 FROM pairs pair
 JOIN assets base ON base.code=pair.base_code
 JOIN assets quote ON quote.code=pair.quote_code;
+
+INSERT OR IGNORE INTO index_definitions
+  (code, base_asset_id, quote_asset_id, direct_market_id, method_key,
+   name_fa, name_en, enabled, display_order, created_at_ms, updated_at_ms)
+SELECT direct.code, base.id, quote.id, direct.id, 'cross_rate_mean',
+       base.name_fa || ' / ' || quote.name_fa || ' (شاخص)',
+       base.name_en || ' / ' || quote.name_en || ' index',
+       1, 10, unixepoch()*1000, unixepoch()*1000
+FROM markets direct
+JOIN assets base ON base.code='USDT'
+JOIN assets quote ON quote.code='TMN'
+WHERE direct.base_asset_id=base.id AND direct.quote_asset_id=quote.id;
+
+INSERT OR IGNORE INTO index_definition_components
+  (index_definition_id, asset_id, numerator_market_id, denominator_market_id, enabled, display_order)
+SELECT definition.id, component.id, numerator.id, denominator.id, 1, component.display_order
+FROM index_definitions definition
+JOIN assets index_base ON index_base.id=definition.base_asset_id
+JOIN assets index_quote ON index_quote.id=definition.quote_asset_id
+JOIN markets numerator ON numerator.quote_asset_id=index_quote.id
+JOIN assets component ON component.id=numerator.base_asset_id
+JOIN markets denominator ON denominator.base_asset_id=component.id
+  AND denominator.quote_asset_id=index_base.id
+WHERE definition.code='USDTTMN' AND component.code IN ('BTC', 'ETH', 'BNB', 'TRX');

@@ -1,32 +1,40 @@
-# API (initial contract)
+# API contract
 
-Routes use `/api/v1`, return JSON, and cache GET responses for five minutes. Decimal fields are strings. `market` always means our canonical output symbol (for example `BTCTMN`); `exchange_symbol` is the exchange's native symbol. `timeframe` is our normalized frame code, while `source_interval_code` preserves the exchange's interval name. Exchange, asset, market, and contact metadata carries Persian and English fields; UI text is selected with the client language setting.
+Routes use `/api/v1`, return JSON, and cache GET responses for five minutes. Price/volume fields are decimal strings. `market` is always our canonical pair code; `exchange_symbol` is the venue-native symbol. Exchange type and dynamic labels are returned with Persian and English fields.
 
-## Authentication contract
+## Catalog and market data
 
-Except `/health` and login/token issuance, CoinicapMarkets API calls require `Authorization: Bearer <access-token>`. Login returns a short-lived token; a signed-in user can issue and revoke longer-lived API tokens with scopes. `read` permits data reads, while `admin` permits exchange, endpoint, market, timeframe, and contact configuration. Only an administrator may grant scopes. Passwords and raw tokens are never returned after creation; D1 stores salted password hashes and token hashes. The scheduled collector writes internally and has no public ingestion endpoint. Browser code must never contain an admin token.
-
-The current router is still a read-only scaffold and does not enforce this auth contract yet. Implement login, bearer-token validation, scope checks, and configuration routes before pilot or before exposing writable API endpoints. Until then, do not treat the API as authenticated.
-
-| Route | Behavior |
+| Route | Purpose |
 |---|---|
-| `GET /api/v1/exchanges` | Enabled exchange directory. Public contact fields only. |
-| `GET /api/v1/markets` | Enabled canonical markets and base/quote assets. |
-| `GET /api/v1/timeframes?exchange=...&market=...` | Enabled timeframes supported by configured exchange-market mappings. Filters are optional. |
-| `GET /api/v1/quotes/latest?exchange=...&market=...&timeframe=...` | Latest collected sample per exchange-market-timeframe. Filters are optional. |
-| `GET /api/v1/quotes/series?exchange=...&market=...&timeframe=15m&from=MS&to=MS` | Sample history for one exchange, canonical market, and timeframe. Maximum range 90 days / 20,000 rows. |
-| `GET /api/v1/aggregates/latest?market=BTCTMN&timeframe=5m&type=cex` | Latest cross-exchange price aggregates. Omit `type` to return all venues and the CEX/OTC groups. |
-| `GET /api/v1/estimates/usdt-tmn?timeframe=5m&type=cex` | Derived USDT/TMN index compared with the direct `USDTTMN` aggregate and their percentage gap. `type` may be `cex` or `otc`; omit it for all venues; `exchange=nobitex` requests one venue's index. |
-| `GET /api/v1/estimates/usdt-tmn/components?timeframe=5m&type=cex` | Per-exchange, per-asset implied rates and the source sample times. Optional `exchange` filters one venue. |
-| `GET /api/v1/estimates/usdt-tmn/exchanges?timeframe=5m` | Latest USDT/TMN index for each exchange, including its CEX/OTC type. |
-| `GET /health` | Liveness only; does not query an exchange. |
+| `GET /health` | Liveness check; no database or exchange calls. |
+| `GET /api/v1/exchanges` | Enabled venues, CEX/OTC/Hybrid type, bilingual names and public contacts. |
+| `GET /api/v1/assets` | Enabled coins/currencies, type and localized labels. |
+| `GET /api/v1/markets` | Canonical pairs, base/quote assets and bilingual display names. |
+| `GET /api/v1/exchange-markets?exchange=...&market=...` | Venue pair mapping: native symbol, endpoint template/mapping and timeframe interval. Secret references and credentials are not returned. |
+| `GET /api/v1/timeframes?exchange=...&market=...` | Supported output timeframes; filters are optional. |
+| `GET /api/v1/quotes/latest?exchange=...&market=...&timeframe=...` | Latest raw sample per exchange pair/timeframe. Filters are optional. |
+| `GET /api/v1/quotes/series?exchange=...&market=...&timeframe=15m&from=MS&to=MS` | Raw sample history; maximum range 90 days and 20,000 rows. |
+| `GET /api/v1/aggregates/latest?market=BTCTMN&timeframe=5m&type=cex` | Latest aggregate. Omit `type` to receive all, CEX and OTC groups. |
+| `GET /api/v1/aggregates/series?market=BTCTMN&timeframe=5m&type=cex&from=MS&to=MS` | Stored aggregate history, up to 90 days. Omit `type` to receive every scope. |
 
-Quote/bar rows contain `price`, `open_price`, `close_price`, `volume`, `value`, `top_price`, `low_price`, `timeframe`, `source_interval_code`, `source_open_time_ms`, `source_close_time_ms`, `source_time_ms`, `collected_at_ms`, and `age_ms`. `top_price` is the high of the exchange candle. If a venue does not return an independent `price`, use its sampled candle close. The API preserves decimal strings; clients should not parse them through binary floating point for calculations.
+## Configurable indices
 
-Market aggregate fields: `price` = arithmetic mean of fresh exchange prices; `high_price`/`low_price` = maximum/minimum of those exchange prices; `open_price`/`close_price` = arithmetic means; `volume`/`value` = sums in the canonical market's base/quote units. Aggregate rows are stored for `all`, `cex`, and `otc` scopes where data exists.
+| Route | Purpose |
+|---|---|
+| `GET /api/v1/indices` | Enabled index definitions and component pair mappings. |
+| `GET /api/v1/indices/{code}?timeframe=5m&type=cex` | One index, direct market comparison and gap. `type` is optional; `exchange` can select a venue. |
+| `GET /api/v1/indices/{code}/components?timeframe=5m&type=cex` | Latest implied rate for each configured component coin, with both source sample times. |
+| `GET /api/v1/indices/{code}/exchanges?timeframe=5m` | Latest index for each venue, including CEX/OTC type. |
+| `GET /api/v1/indices/{code}/series?timeframe=5m&type=cex&from=MS&to=MS` | Stored index history with direct-market prices and calculated gap. Use `exchange=...` to select one venue instead of a type. |
 
-For each same-exchange, same-timeframe base asset with both a `BASE/TMN` and `BASE/USDT` market, the implied rate is `BASE/TMN ÷ BASE/USDT`. The exchange index is the arithmetic mean of available coin rates. CEX/OTC/all indices average per-exchange indices equally. High/Low on an index describe the highest/lowest constituent current implied rate; per-coin OHLC bounds use Toman high ÷ USDT low and Toman low ÷ USDT high. The index `value` sums the quote turnover from the contributing Toman-side markets. Component responses expose both source sample timestamps so clients can inspect freshness.
+`USDTTMN` is the initial definition. The older `/api/v1/estimates/usdt-tmn` paths remain aliases for that code. A later `DAITMN` index is added by creating a definition and selecting the numerator/denominator pairs for its components; the calculation provider remains unchanged.
 
-The collector cadence is separate from the bar timeframe. For example, a `15m` venue candle can be sampled every 5 minutes; repeated observations of that same source candle are intentionally preserved with different `collected_at_ms` values.
+Each component computes `BASE/INDEX_QUOTE ÷ BASE/INDEX_BASE` within one exchange and timeframe. For example, the BTC component of `USDTTMN` is `BTCTMN / BTCUSDT`; the BTC component of `DAITMN` is `BTCTMN / BTCDAI`. The service averages configured coin components within each exchange, then equally averages each venue's index for CEX, OTC, and all scopes.
 
-USDT/TMN estimate rows expose the direct aggregate, derived index, `gap_percent = (index - direct) / direct × 100`, formula version, and quality flags. Until adapters and the scheduled recomputation are active, stored aggregate/index tables will be empty and the estimate status will be `no_data`; do not treat it as a working or executable arbitrage result.
+Market aggregate fields: `price`, `open_price`, and `close_price` are arithmetic means. `high_price`/`low_price` are the maximum/minimum current exchange `price`. `volume`/`value` are sums only when their units match. Index `high_price`/`low_price` are the max/min component implied current rates. Per-component OHLC bounds use numerator high ÷ denominator low, and numerator low ÷ denominator high because candle OHLC does not expose exact extreme times. Index `value` sums quote turnover from the numerator pairs; index `volume` is omitted because an index has no single base asset. `gap_percent = (index - direct_market) / direct_market × 100`.
+
+`market_data_samples` preserves every observation; `computed_market_samples`, `price_index_component_samples`, and `price_index_samples` preserve calculated history. Only inputs collected within six minutes are used in a current recomputation. Component rows include source IDs/timestamps so consumers can audit freshness.
+
+## Authentication
+
+The intended contract requires `Authorization: Bearer <token>` for API data and configuration calls except `/health` and login/token issuance. Read scope permits data access; admin scope permits configuration changes. The current router has not implemented login, token validation, or write routes yet. Do not treat the API as authenticated and do not expose writable routes before access checks are implemented. The collector writes internally; there is no public data-ingest endpoint.

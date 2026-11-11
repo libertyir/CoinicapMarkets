@@ -4,9 +4,10 @@ const translations = {
     title: "بازارها", subtitle: "قیمت‌های تجمیعی از صرافی‌های ایرانی", connecting: "در حال اتصال",
     latest: "آخرین قیمت‌ها", exchange: "صرافی", type: "نوع", market: "نماد خروجی",
     timeframe: "تایم‌فریم", sampleTime: "زمان نمونه", status: "وضعیت", loading: "دریافت اطلاعات…",
-    aggregateTitle: "میانگین بازارها", indexTitle: "شاخص برآوردی تتر", exchangeIndexTitle: "شاخص هر صرافی",
+    aggregateTitle: "میانگین بازارها", indexTitle: "شاخص‌های برآوردی", exchangeIndexTitle: "شاخص هر صرافی",
     componentsTitle: "نرخ‌های محاسباتی هر کوین", scope: "گروه", contributors: "تعداد صرافی",
-    direct: "نرخ مستقیم", gap: "اختلاف ٪", assets: "تعداد کوین", asset: "کوین", all: "همهٔ صرافی‌ها",
+    direct: "نرخ مستقیم", gap: "اختلاف ٪", index: "شاخص", impliedRate: "نرخ ضمنی",
+    assets: "تعداد کوین", asset: "کوین", all: "همهٔ صرافی‌ها",
     noDerivedData: "هنوز دادهٔ محاسباتی ثبت نشده است.",
     apiNote: "API مستقل است؛ نشانی آن در فایل config.js تنظیم می‌شود.", empty: "هنوز داده‌ای ثبت نشده است.",
     connected: "متصل", unavailable: "API در دسترس نیست", connectionError: "ارتباط با API برقرار نشد.",
@@ -16,9 +17,10 @@ const translations = {
     title: "Markets", subtitle: "Aggregated prices from Iranian exchanges", connecting: "Connecting",
     latest: "Latest prices", exchange: "Exchange", type: "Type", market: "Output symbol",
     timeframe: "Timeframe", sampleTime: "Sample time", status: "Status", loading: "Loading data…",
-    aggregateTitle: "Market aggregates", indexTitle: "Estimated USDT index", exchangeIndexTitle: "Index by exchange",
+    aggregateTitle: "Market aggregates", indexTitle: "Calculated indices", exchangeIndexTitle: "Index by exchange",
     componentsTitle: "Per-coin implied rates", scope: "Group", contributors: "Exchanges",
-    direct: "Direct rate", gap: "Gap %", assets: "Coins", asset: "Asset", all: "All exchanges",
+    direct: "Direct rate", gap: "Gap %", index: "Index", impliedRate: "Implied rate",
+    assets: "Coins", asset: "Asset", all: "All exchanges",
     noDerivedData: "No calculated data has been recorded yet.",
     apiNote: "The API is separate; set its URL in config.js.", empty: "No data has been recorded yet.",
     connected: "Connected", unavailable: "API unavailable", connectionError: "Could not connect to the API.",
@@ -89,23 +91,26 @@ function renderDerived(data) {
     item.volume, item.value, item.exchange_count
   ]);
 
-  if (!data.indices.length) showEmpty(indices, 12);
+  if (!data.indices.length) showEmpty(indices, 13);
   for (const item of data.indices) addRow(indices, [
+    language === "fa" ? item.definition.name_fa : item.definition.name_en,
     groupName(item.scope_type, item.scope_key), item.timeframe, item.index?.price,
     item.index?.high_price, item.index?.low_price, item.index?.open_price,
-    item.index?.close_price, item.direct_usdt_tmn?.price, item.gap_percent, item.index?.value,
+    item.index?.close_price, item.direct_market?.price, item.gap_percent, item.index?.value,
     item.index?.exchange_count, item.index?.asset_count
   ]);
 
-  if (!data.exchangeIndices.length) showEmpty(exchangeIndices, 9);
+  if (!data.exchangeIndices.length) showEmpty(exchangeIndices, 10);
   for (const item of data.exchangeIndices) addRow(exchangeIndices, [
+    language === "fa" ? item.index_name_fa : item.index_name_en,
     language === "fa" ? item.exchange_name_fa : item.exchange_name_en,
     t(item.exchange_type), item.price, item.high_price, item.low_price,
     item.open_price, item.close_price, item.value, item.asset_count
   ]);
 
-  if (!data.components.length) showEmpty(components, 9);
+  if (!data.components.length) showEmpty(components, 10);
   for (const item of data.components) addRow(components, [
+    language === "fa" ? item.index_name_fa : item.index_name_en,
     language === "fa" ? item.exchange_name_fa : item.exchange_name_en,
     t(item.exchange_type), item.asset, item.timeframe, item.price,
     item.high_price, item.low_price, item.value,
@@ -121,15 +126,32 @@ async function loadDerived() {
     return response.json();
   };
   try {
-    const [aggregates, all, cex, otc, exchangeIndices, components] = await Promise.all([
-      read("/api/v1/aggregates/latest?timeframe=5m"),
-      read("/api/v1/estimates/usdt-tmn?timeframe=5m"),
-      read("/api/v1/estimates/usdt-tmn?timeframe=5m&type=cex"),
-      read("/api/v1/estimates/usdt-tmn?timeframe=5m&type=otc"),
-      read("/api/v1/estimates/usdt-tmn/exchanges?timeframe=5m"),
-      read("/api/v1/estimates/usdt-tmn/components?timeframe=5m")
+    const [aggregates, definitions] = await Promise.all([
+      read("/api/v1/aggregates/latest?timeframe=5m"), read("/api/v1/indices")
     ]);
-    latestDerived = { aggregates, indices: [all, cex, otc], exchangeIndices, components };
+    const expanded = await Promise.all(definitions.map(async (definition) => {
+      const code = encodeURIComponent(definition.code);
+      const [summary, exchanges, components] = await Promise.all([
+        read(`/api/v1/indices/${code}?timeframe=5m`),
+        read(`/api/v1/indices/${code}?timeframe=5m&type=cex`),
+        read(`/api/v1/indices/${code}?timeframe=5m&type=otc`),
+        read(`/api/v1/indices/${code}/exchanges?timeframe=5m`),
+        read(`/api/v1/indices/${code}/components?timeframe=5m`)
+      ]);
+      return { definition, summaries: [summary, cex, otc], exchanges, components };
+    }));
+    latestDerived = {
+      aggregates,
+      indices: expanded.flatMap(({ definition, summaries }) => summaries.map((summary) => ({
+        ...summary, definition
+      }))),
+      exchangeIndices: expanded.flatMap(({ definition, exchanges }) => exchanges.map((row) => ({
+        ...row, index_name_fa: definition.name_fa, index_name_en: definition.name_en
+      }))),
+      components: expanded.flatMap(({ definition, components }) => components.map((row) => ({
+        ...row, index_name_fa: definition.name_fa, index_name_en: definition.name_en
+      })))
+    };
     renderDerived(latestDerived);
   } catch {
     latestDerived = { aggregates: [], indices: [], exchangeIndices: [], components: [] };
