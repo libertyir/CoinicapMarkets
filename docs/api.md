@@ -1,14 +1,19 @@
 # Public API (initial contract)
 
-All routes are read-only `GET`, versioned under `/api/v1`, and cached for five minutes. API responses include decimal prices as strings and observation timestamps. CORS policy and API key/rate-limit rules should be set before opening a paid or high-volume service to the public internet.
+Read-only routes use `/api/v1`, return JSON, and cache GET responses for five minutes. Decimal fields are strings. `market` always means our canonical output symbol (for example `BTCTMN`); `exchange_symbol` is the exchange's native symbol. `timeframe` is our normalized frame code, while `source_interval_code` preserves the exchange's interval name.
 
 | Route | Behavior |
 |---|---|
-| `/api/v1/exchanges` | Enabled exchanges in display order. |
-| `/api/v1/markets` | Enabled canonical markets and asset codes. |
-| `/api/v1/quotes/latest?exchange=...&market=...` | Latest good quote(s); either filter is optional. Includes collection age. |
-| `/api/v1/quotes/series?exchange=...&market=...&from=MS&to=MS` | Historical observations for one venue/pair; maximum 90 days and 20,000 returned rows. |
-| `/api/v1/estimates/usdt-tmn` | Contract reserved for direct and estimated USDT/TMN comparison. Currently reports `not_configured`. |
-| `/health` | Liveness only; does not query an exchange. |
+| `GET /api/v1/exchanges` | Enabled exchange directory. Public contact fields only. |
+| `GET /api/v1/markets` | Enabled canonical markets and base/quote assets. |
+| `GET /api/v1/timeframes?exchange=...&market=...` | Enabled timeframes supported by configured exchange-market mappings. Filters are optional. |
+| `GET /api/v1/quotes/latest?exchange=...&market=...&timeframe=...` | Latest collected sample per exchange-market-timeframe. Filters are optional. |
+| `GET /api/v1/quotes/series?exchange=...&market=...&timeframe=15m&from=MS&to=MS` | Sample history for one exchange, canonical market, and timeframe. Maximum range 90 days / 20,000 rows. |
+| `GET /api/v1/estimates/usdt-tmn` | Planned direct/estimated rate comparison; currently returns `not_configured`. |
+| `GET /health` | Liveness only; does not query an exchange. |
 
-The USDT/TMN estimate is planned to derive candidate rates from same-exchange cross pairs (for example `BTCTMN / BTCUSDT`) and aggregate only fresh, valid inputs. The response should expose the direct rate, estimate, percentage gap, input venues, method/version, sample time, and confidence/quality flags. This endpoint is not implemented as a financial recommendation.
+Quote/bar rows contain `price`, `open_price`, `close_price`, `volume`, `top_price`, `low_price`, `timeframe`, `source_interval_code`, `source_open_time_ms`, `source_close_time_ms`, `source_time_ms`, `collected_at_ms`, and `age_ms`. `top_price` is the high of the exchange candle. If a venue does not return an independent `price`, use its sampled candle close. The API preserves decimal strings; clients should not parse them through binary floating point for calculations.
+
+The collector cadence is separate from the bar timeframe. For example, a `15m` venue candle can be sampled every 5 minutes; repeated observations of that same source candle are intentionally preserved with different `collected_at_ms` values.
+
+The future USDT/TMN estimate should expose direct quote, estimated quote, gap %, formula/version, input markets and venues, data age, and quality flags. Do not label it as a working or executable arbitrage result until adapters and methodology are implemented.

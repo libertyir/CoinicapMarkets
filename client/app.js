@@ -2,7 +2,6 @@ const apiBaseUrl = window.COINICAP_CONFIG.apiBaseUrl.replace(/\/$/, "");
 const quotesBody = document.querySelector("#quotes");
 const connectionState = document.querySelector("#connection-state");
 const updatedAt = document.querySelector("#updated-at");
-const numberFormat = new Intl.NumberFormat("fa-IR", { maximumFractionDigits: 8 });
 
 function safeCell(value) {
   const cell = document.createElement("td");
@@ -13,7 +12,7 @@ function safeCell(value) {
 function renderQuotes(quotes) {
   quotesBody.replaceChildren();
   if (!quotes.length) {
-    quotesBody.innerHTML = '<tr><td colspan="5" class="text-center text-secondary py-5">هنوز داده‌ای ثبت نشده است.</td></tr>';
+    quotesBody.innerHTML = '<tr><td colspan="11" class="text-center text-secondary py-5">هنوز داده‌ای ثبت نشده است.</td></tr>';
     return;
   }
   for (const quote of quotes) {
@@ -21,7 +20,13 @@ function renderQuotes(quotes) {
     row.append(
       safeCell(quote.exchange_name || quote.exchange),
       safeCell(quote.market),
-      safeCell(numberFormat.format(Number(quote.price))),
+      safeCell(quote.timeframe),
+      safeCell(quote.price ?? "—"),
+      safeCell(quote.open_price ?? "—"),
+      safeCell(quote.close_price ?? "—"),
+      safeCell(quote.volume ?? "—"),
+      safeCell(quote.top_price ?? "—"),
+      safeCell(quote.low_price ?? "—"),
       safeCell(new Date(quote.collected_at_ms).toLocaleTimeString("fa-IR")),
       safeCell(quote.age_ms < 10 * 60 * 1000 ? "به‌روز" : "قدیمی")
     );
@@ -40,7 +45,7 @@ async function loadQuotes() {
   } catch {
     connectionState.className = "badge text-bg-danger";
     connectionState.textContent = "API در دسترس نیست";
-    quotesBody.innerHTML = '<tr><td colspan="5" class="text-center text-danger py-5">ارتباط با API برقرار نشد.</td></tr>';
+    quotesBody.innerHTML = '<tr><td colspan="11" class="text-center text-danger py-5">ارتباط با API برقرار نشد.</td></tr>';
   }
 }
 

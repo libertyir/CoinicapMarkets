@@ -18,13 +18,13 @@ JavaScript برای Worker انتخاب شده چون با دانسته‌های
 
 Migration اولیه بازارهای `BTCTMN`, `BTCUSDT`, `ETHUSDT`, `ETHTMN`, `BNBTMN`, `BNBUSDT`, `TRXUSDT`, `TRXTMN`, `USDTTMN`, `USDCTMN` را تعریف می‌کند. رکورد صرافی‌ها و نگاشت نمادهای native پس از تعیین صرافی‌های شروع اضافه می‌شوند.
 
-دارایی‌ها و بازارهای canonical در جداول مرجع‌اند؛ `exchange_markets` نماد هر جفت را برای هر صرافی نگاشت می‌کند. فعال/غیرفعال‌کردن صرافی، بازار یا نگاشت نیازی به تغییر schema ندارد. قیمت‌ها به‌صورت رشتهٔ ده‌دهی ذخیره می‌شوند. واحد quote باید از API هر صرافی بررسی شود؛ `TMN` را بدون راستی‌آزمایی معادل تومان فرض نمی‌کنیم. جزئیات در [طرح دیتابیس](docs/database.md) است.
+دارایی‌ها و بازارهای canonical در جداول مرجع‌اند؛ `markets.code` نماد خروجی مثل `BTCTMN` است و `exchange_markets.native_symbol` نماد واقعی صرافی مثل `btc-Toman`. این دو هیچ‌وقت جای هم استفاده نمی‌شوند. تنظیمات endpoint، روش/آدرس درخواست، قالب پارامترها و نگاشت JSON پاسخ در `exchange_api_endpoints` ذخیره می‌شود. بازهٔ جمع‌آوری (مثلاً هر ۵ دقیقه) از تایم‌فریم کندل (مثلاً ۱۵ دقیقه یا یک ساعت) جداست؛ نمونه‌های مکرر از یک کندل در `market_data_samples` ثبت می‌شوند. قیمت‌ها به‌صورت رشتهٔ ده‌دهی ذخیره می‌شوند. واحد quote و volume باید برای هر API مشخص شود. جزئیات در [طرح دیتابیس](docs/database.md) است.
 
 ## جمع‌آوری، کش و API
 
 Cron هر پنج دقیقه اجرا می‌شود و فقط collector به API صرافی‌ها درخواست می‌فرستد. درخواست کاربران از کش پنج‌دقیقه‌ای پاسخ می‌گیرد؛ cache miss به D1 می‌رود و مستقیماً به صرافی نمی‌رود. خطای یک API نباید آخرین قیمت سالم را پاک کند. Cache API و حافظهٔ isolate موقتی‌اند؛ پس از cache miss، cold start یا تغییر منطقه ممکن است D1 خوانده شود.
 
-مسیرها: `/api/v1/exchanges`, `/api/v1/markets`, `/api/v1/quotes/latest`, `/api/v1/quotes/series`, `/api/v1/estimates/usdt-tmn` (فعلاً `not_configured`) و `/health`. قرارداد کامل در [API](docs/api.md) و [OpenAPI](docs/openapi.yaml) است.
+مسیرها: `/api/v1/exchanges`, `/api/v1/markets`, `/api/v1/timeframes`, `/api/v1/quotes/latest`, `/api/v1/quotes/series`, `/api/v1/estimates/usdt-tmn` (فعلاً `not_configured`) و `/health`. API قیمت، Open، Close، Volume، TopPrice/High و LowPrice را با تایم‌فریم و زمان‌های منبع/جمع‌آوری می‌دهد. قرارداد کامل در [API](docs/api.md) و [OpenAPI](docs/openapi.yaml) است.
 
 ## محدودیت‌های پلن رایگان فعلی
 
@@ -60,4 +60,4 @@ python -m http.server 8080
 
 ## وضعیت فعلی
 
-ساختار JavaScript، schema، مسیرهای اولیهٔ API، کش و UI سادهٔ جداگانه حاضرند. Adapterهای واقعی، collector فعال، محاسبهٔ واقعی USDT/TMN و UI نهایی بعد از انتخاب صرافی‌های شروع کامل می‌شوند.
+ساختار JavaScript، schema، مسیرهای اولیهٔ API، کش و UI سادهٔ جداگانه حاضرند. Migration دوم مدل OHLCV، تایم‌فریم‌های مستقل، تنظیمات داینامیک API و اطلاعات صرافی را اضافه می‌کند. Adapterهای واقعی، collector فعال، محاسبهٔ واقعی USDT/TMN و UI نهایی بعد از انتخاب صرافی‌های شروع کامل می‌شوند.

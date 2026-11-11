@@ -2,7 +2,7 @@ openapi: 3.1.0
 info:
   title: Coinicap Markets API
   version: 1.0.0
-  description: Read-only aggregated market data. Responses are cached for up to five minutes.
+  description: Read-only OHLCV snapshots. `market` is the canonical output symbol; `exchange_symbol` is the venue-native symbol. Responses are cached for up to five minutes.
 servers:
   - url: https://{worker-host}
     variables:
@@ -27,6 +27,19 @@ paths:
       responses:
         '200':
           description: Enabled markets
+  /api/v1/timeframes:
+    get:
+      summary: List enabled output timeframes
+      parameters:
+        - in: query
+          name: exchange
+          schema: { type: string }
+        - in: query
+          name: market
+          schema: { type: string }
+      responses:
+        '200':
+          description: Timeframes configured for active exchange-market mappings
   /api/v1/quotes/latest:
     get:
       summary: Get last known good quotes
@@ -36,6 +49,10 @@ paths:
           schema: { type: string }
         - in: query
           name: market
+          schema: { type: string }
+        - in: query
+          name: timeframe
+          description: Normalized timeframe such as 5m, 15m, or 1h
           schema: { type: string }
       responses:
         '200':
@@ -50,6 +67,10 @@ paths:
           schema: { type: string }
         - in: query
           name: market
+          required: true
+          schema: { type: string }
+        - in: query
+          name: timeframe
           required: true
           schema: { type: string }
         - in: query
