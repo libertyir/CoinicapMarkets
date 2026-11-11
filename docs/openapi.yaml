@@ -2,7 +2,7 @@ openapi: 3.1.0
 info:
   title: Coinicap Markets API
   version: 1.0.0
-  description: Read-only OHLCV snapshots. `market` is the canonical output symbol; `exchange_symbol` is the venue-native symbol. Responses are cached for up to five minutes.
+  description: OHLCV samples and derived aggregates. `market` is the canonical output symbol; `exchange_symbol` is venue-native. Prices are decimal strings; Persian/English metadata is returned together. Responses are cached up to five minutes.
 servers:
   - url: https://{worker-host}
     variables:
@@ -88,10 +88,63 @@ paths:
           description: Historical observations
         '400':
           description: Invalid parameters
-  /api/v1/estimates/usdt-tmn:
+  /api/v1/aggregates/latest:
     get:
-      summary: Direct and estimated USDT/TMN rates
-      description: Reserved contract; returns not_configured until verified source adapters and calculation rules are enabled.
+      summary: Get latest cross-exchange aggregates
+      parameters:
+        - in: query
+          name: market
+          schema: { type: string }
+        - in: query
+          name: timeframe
+          schema: { type: string }
+        - in: query
+          name: type
+          description: Filter to cex or otc; omit to return all scopes
+          schema: { type: string, enum: [cex, otc] }
       responses:
         '200':
-          description: Estimate status and inputs
+          description: Means, cross-exchange high/low, volume/value sums, and contributor counts
+  /api/v1/estimates/usdt-tmn:
+    get:
+      summary: Direct and implied USDT/TMN index
+      parameters:
+        - in: query
+          name: timeframe
+          schema: { type: string, default: 5m }
+        - in: query
+          name: type
+          schema: { type: string, enum: [cex, otc] }
+        - in: query
+          name: exchange
+          description: Return one exchange's implied index
+          schema: { type: string }
+      responses:
+        '200':
+          description: Derived index, direct USDTTMN aggregate, contributing assets and freshness
+  /api/v1/estimates/usdt-tmn/components:
+    get:
+      summary: Get per-exchange and per-asset implied USDT/TMN rates
+      parameters:
+        - in: query
+          name: timeframe
+          schema: { type: string, default: 5m }
+        - in: query
+          name: type
+          schema: { type: string, enum: [cex, otc] }
+        - in: query
+          name: exchange
+          schema: { type: string }
+      responses:
+        '200':
+          description: Implied rates and both source sample timestamps
+  /api/v1/estimates/usdt-tmn/exchanges:
+    get:
+      summary: Get the latest implied index for each exchange
+      parameters:
+        - in: query
+          name: timeframe
+          schema: { type: string, default: 5m }
+      responses:
+        '200':
+          description: Per-exchange indices with CEX/OTC classification

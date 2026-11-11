@@ -8,7 +8,8 @@ Each row describes one operation (for example `candles`):
 
 - HTTP method and a path template relative to the exchange's validated HTTPS base URL.
 - Header, query, and optional body JSON templates; placeholders are limited to documented values such as `{native_symbol}` and `{source_interval}`.
-- `response_items_path` locates the response item/list; `response_field_map_json` maps source JSON paths to canonical fields: `price`, `open`, `close`, `volume`, `top_price`, `low_price`, `source_open_time_ms`, `source_close_time_ms`, and `source_time_ms`.
+- `response_items_path` locates the response item/list; `response_field_map_json` maps source JSON paths to canonical fields: `price`, `open`, `close`, `volume`, `value`, `top_price`, `low_price`, `source_open_time_ms`, `source_close_time_ms`, and `source_time_ms`.
+- `volume_unit` states whether returned volume is in base currency, quote currency, or unknown. Persist `value` as quote-currency turnover; if the source has no value field, compute `price × volume` only when `volume_unit=base`.
 - `exchange_market_timeframes` maps the public timeframe (`15m`) to the venue's own interval code (`15`, `15min`, etc.) and selected endpoint.
 - Per-endpoint `poll_interval_seconds`, `timeout_ms`, and request-rate limit.
 
