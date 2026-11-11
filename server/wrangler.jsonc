@@ -9,8 +9,7 @@
     {
       "binding": "DB",
       "database_name": "coinicap-markets",
-      "database_id": "REPLACE_WITH_D1_DATABASE_ID",
-      "migrations_dir": "migrations"
+      "database_id": "REPLACE_WITH_D1_DATABASE_ID"
     }
   ]
 }

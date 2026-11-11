@@ -16,9 +16,9 @@ JavaScript برای Worker انتخاب شده چون با دانسته‌های
 
 ## طراحی داده
 
-Migration اولیه بازارهای `BTCTMN`, `BTCUSDT`, `ETHUSDT`, `ETHTMN`, `BNBTMN`, `BNBUSDT`, `TRXUSDT`, `TRXTMN`, `USDTTMN`, `USDCTMN` را تعریف می‌کند. رکورد صرافی‌ها و نگاشت نمادهای native پس از تعیین صرافی‌های شروع اضافه می‌شوند.
+Bootstrap اولیه بازارهای `BTCTMN`, `BTCUSDT`, `ETHUSDT`, `ETHTMN`, `BNBTMN`, `BNBUSDT`, `TRXUSDT`, `TRXTMN`, `USDTTMN`, `USDCTMN` را seed می‌کند. رکورد صرافی‌ها و نگاشت نمادهای native پس از تعیین صرافی‌های شروع اضافه می‌شوند.
 
-دارایی‌ها و بازارهای canonical در جداول مرجع‌اند؛ `markets.code` نماد خروجی مثل `BTCTMN` است و `exchange_markets.native_symbol` نماد واقعی صرافی مثل `btc-Toman`. این دو هیچ‌وقت جای هم استفاده نمی‌شوند. تنظیمات endpoint، روش/آدرس درخواست، قالب پارامترها و نگاشت JSON پاسخ در `exchange_api_endpoints` ذخیره می‌شود. بازهٔ جمع‌آوری (مثلاً هر ۵ دقیقه) از تایم‌فریم کندل (مثلاً ۱۵ دقیقه یا یک ساعت) جداست؛ نمونه‌های مکرر از یک کندل در `market_data_samples` ثبت می‌شوند. قیمت‌ها به‌صورت رشتهٔ ده‌دهی ذخیره می‌شوند. واحد quote و volume باید برای هر API مشخص شود. جزئیات در [طرح دیتابیس](docs/database.md) است.
+دارایی‌ها و بازارهای canonical در جداول مرجع‌اند؛ `markets.code` نماد خروجی مثل `BTCTMN` است و `exchange_markets.native_symbol` نماد واقعی صرافی مثل `btc-Toman`. تنظیمات endpoint و نگاشت JSON پاسخ در `exchange_api_endpoints` ذخیره می‌شود. فاصلهٔ جمع‌آوری (مثلاً هر ۵ دقیقه) از تایم‌فریم کندل (مثلاً ۱۵ دقیقه یا یک ساعت) جداست؛ نمونه‌های مکرر از یک کندل در `market_data_samples` ثبت می‌شوند. قیمت‌ها به‌صورت رشتهٔ ده‌دهی ذخیره می‌شوند. جزئیات در [طرح دیتابیس](docs/database.md) است.
 
 ## جمع‌آوری، کش و API
 
@@ -34,30 +34,24 @@ Workers Free فعلاً ۱۰۰٬۰۰۰ درخواست ورودی روزانه، 
 
 ## شروع محلی
 
-API: پیش‌نیاز Node.js و npm.
+پیش‌نیاز API: Node.js و npm.
 
 ```sh
 cd server
 npm install
-npx wrangler d1 create coinicap-markets
 ```
 
-شناسهٔ دیتابیس را در `server/wrangler.jsonc` بگذار، سپس:
+تا قبل از تأیید شروع پایلوت، دیتابیس محلی/remote را initialize نمی‌کنیم. در نتیجه Worker فعلاً بدون D1 آمادهٔ اجرا نیست. وقتی راه‌اندازی پایلوت را تأیید کردی، bootstrap را فقط برای دیتابیس خالی اجرا می‌کنیم؛ دستورها در [راهنمای deploy](docs/deployment.md) هستند.
 
-```sh
-npx wrangler d1 migrations apply coinicap-markets --local
-npm run dev
-```
-
-UI را در ترمینال دیگری اجرا کن:
+UI بدون دیتابیس قابل مشاهده است:
 
 ```sh
 cd client
 python -m http.server 8080
 ```
 
-`client/config.js` به‌طور پیش‌فرض API محلی `http://localhost:8787` را نشانه می‌گیرد. کلاینت و API جداگانه deploy می‌شوند؛ دستورها در [راهنمای deploy](docs/deployment.md) هستند.
+`client/config.js` به‌طور پیش‌فرض API محلی `http://localhost:8787` را نشانه می‌گیرد. کلاینت و API جداگانه deploy می‌شوند.
 
 ## وضعیت فعلی
 
-ساختار JavaScript، schema، مسیرهای اولیهٔ API، کش و UI سادهٔ جداگانه حاضرند. Migration دوم مدل OHLCV، تایم‌فریم‌های مستقل، تنظیمات داینامیک API و اطلاعات صرافی را اضافه می‌کند. Adapterهای واقعی، collector فعال، محاسبهٔ واقعی USDT/TMN و UI نهایی بعد از انتخاب صرافی‌های شروع کامل می‌شوند.
+ساختار JavaScript، schema، مسیرهای اولیهٔ API، کش و UI سادهٔ جداگانه حاضرند. یک اسکریپت bootstrap واحد در `server/db/bootstrap.sql` طرح نهایی دیتابیس خالی را تعریف می‌کند. تا اعلام صریح شروع پایلوت، آن را اجرا نمی‌کنیم و دیتابیس remote را تغییر نمی‌دهیم. Adapterهای واقعی، collector فعال، محاسبهٔ واقعی USDT/TMN و UI نهایی بعد از انتخاب صرافی‌های شروع کامل می‌شوند.

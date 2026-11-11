@@ -1,6 +1,6 @@
 # Database design
 
-Migrations live in `server/migrations/`. The v1 schema is extended by `0002_timeframes_and_dynamic_exchange_api.sql`; it does not rewrite migration history.
+The complete fresh-database schema is in `server/db/bootstrap.sql`. Before pilot, maintain that single setup script in place; do not create or apply migrations. Never execute it against a database with retained data. After the owner explicitly starts the pilot, ask before any schema, cleanup, retention, delete, or backfill operation and propose a migration/backup plan first.
 
 ## Identity and configuration
 
@@ -27,7 +27,7 @@ The three symbols must remain separate:
 
 Fields: `price`, `open_price`, `close_price`, `volume`, `top_price`, `low_price`, venue-native interval, source timestamps, sample timestamp, canonical output symbol, and native symbol as used at collection time. Store numeric values as decimal text. `price` is the price value reported for that sampled bar; if an API only supplies OHLCV, the adapter maps it to that candle's close. `top_price` means candle high. Volume units must be documented by each adapter (normally the base asset).
 
-`collection_runs` records collector health. The earlier `observations` and `latest_quotes` tables are retained as v1 legacy tables; the v2 API reads `market_data_samples`.
+`collection_runs` records collector health. The bootstrap contains only the final initial schema; it does not create the obsolete v1 `observations` or `latest_quotes` tables.
 
 ## Dynamic endpoint format
 

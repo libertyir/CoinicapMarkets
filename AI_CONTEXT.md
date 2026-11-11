@@ -8,6 +8,8 @@ This file is the handoff memory for any AI or contributor continuing this projec
 2. **Keep every source/code file at or below 500 lines.** Split modules, helpers, adapters, and classes before a file approaches the limit. Do not solve growth by compressing or minifying code.
 3. **Keep this context file current** when architecture, decisions, deployment, or project status materially changes. It is intentionally a concise handoff, not a full specification.
 4. Use plain JavaScript for the backend (no TypeScript). The owner knows C#, Python, JavaScript, Delphi Pascal, ASP.NET, and PHP; prefer JavaScript here because the current target is Cloudflare Workers and the client is JavaScript.
+5. **Before the pilot, maintain one fresh-database setup script only.** Do not add/apply migrations or initialize local/remote persistent databases until the owner explicitly starts the pilot.
+6. Ask before work that changes or relies on retained data (schema after pilot, retention, deletion, cleanup, backfill, or remote database operations). Ordinary code, docs, and UI edits do not need confirmation.
 
 ## Product
 
@@ -30,7 +32,7 @@ Planned features include exchange/market price comparisons, cross-market gaps, d
 
 ## Data model
 
-Migrations live in `server/migrations/`. V1 defines `exchanges`, `assets`, `markets`, `exchange_markets`, `observations`, `latest_quotes`, `collection_runs`, and `schema_migrations`. V2 adds exchange contact/profile fields, `exchange_contacts`, declarative `exchange_api_endpoints`, normalized `timeframes`, venue interval mappings in `exchange_market_timeframes`, and sampled OHLCV rows in `market_data_samples`.
+The single pre-pilot setup script is `server/db/bootstrap.sql`. It creates the final initial schema: `exchanges`, `exchange_contacts`, `assets`, `markets`, `exchange_markets`, `exchange_api_endpoints`, `timeframes`, `exchange_market_timeframes`, `market_data_samples`, and `collection_runs`. No migrations exist or should be created before the owner says pilot.
 
 Keep three identifiers distinct: canonical output symbol in `markets.code` (e.g. `BTCTMN`), venue-native pair in `exchange_markets.native_symbol` (e.g. `btc-Toman`), and normalized output timeframe vs `source_interval_code`. `market_data_samples` records `collected_at_ms` separately from source candle open/close times. Numeric values remain decimal strings. Verify quote/volume units and whether TMN means toman or rial; never assume.
 
@@ -40,6 +42,7 @@ Endpoint configuration is declarative: method, path, headers/query/body template
 
 - Public repository: https://github.com/libertyir/CoinicapMarkets
 - Main branch contains the JavaScript backend/static-client restructure and GPL-3.0 license retained from the repository.
+- Database bootstrap is intentionally deferred; `server/db/bootstrap.sql` is the sole initial schema source and has not been run.
 - The backend routes and UI are starter scaffolding. **No real exchange adapter/collector is active yet.**
 - `GET /api/v1/estimates/usdt-tmn` currently returns `not_configured`; do not describe it as a working estimate.
 - API routes: `/api/v1/exchanges`, `/api/v1/markets`, `/api/v1/timeframes`, `/api/v1/quotes/latest`, `/api/v1/quotes/series`, `/api/v1/estimates/usdt-tmn`, and `/health`.

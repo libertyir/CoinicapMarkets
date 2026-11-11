@@ -6,8 +6,7 @@
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
-    "db:local": "wrangler d1 migrations apply coinicap-markets --local",
-    "db:remote": "wrangler d1 migrations apply coinicap-markets --remote"
+    "db:bootstrap:local": "wrangler d1 execute coinicap-markets --file=db/bootstrap.sql --local"
   },
   "devDependencies": {
     "wrangler": "^4.45.0"
