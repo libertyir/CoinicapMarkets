@@ -29,10 +29,13 @@ Planned features include exchange/market price comparisons, cross-market gaps, d
 - Each collector poll stores `price`, `open_price`, `close_price`, `volume`, `top_price`, and `low_price`. A 5-minute polling cadence is distinct from the exchange candle timeframe (e.g. 15m or 1h); repeated snapshots of one source candle are preserved.
 - Store prices as decimal strings. Preserve source and collection timestamps. On exchange/API failures, retain the last good quote and record diagnostics.
 - UI and API deploy separately; configure CORS for the client origin when moving beyond the current public read-only prototype.
+- Every visible client string needs Persian and English translations. Switch both `lang` and page direction (`rtl`/`ltr`); server metadata includes paired `*_fa` / `*_en` fields.
+- Initial exchange directory: Nobitex, Wallex, and Bitpin are labeled CEX; VisaPay is labeled OTC per owner. Store this as dynamic `exchange_type` (`cex`, `otc`, `hybrid`) and return it through the exchange and quote APIs. The initial UI has a Persian/English toggle.
+- CoinicapMarkets API access contract: login issues bearer tokens; read scope is for data access, admin scope is required for configuration writes. Store only salted password hashes and API-token hashes; no default credentials. Collector writes are internal to the scheduled Worker. Do not put admin tokens in browser code.
 
 ## Data model
 
-The single pre-pilot setup script is `server/db/bootstrap.sql`. It creates the final initial schema: `exchanges`, `exchange_contacts`, `assets`, `markets`, `exchange_markets`, `exchange_api_endpoints`, `timeframes`, `exchange_market_timeframes`, `market_data_samples`, and `collection_runs`. No migrations exist or should be created before the owner says pilot.
+The single pre-pilot setup script is `server/db/bootstrap.sql`. It creates the final initial schema: `exchanges`, `exchange_contacts`, `assets`, `markets`, `exchange_markets`, `exchange_api_endpoints`, `timeframes`, `exchange_market_timeframes`, `market_data_samples`, `collection_runs`, `users`, and `api_tokens`. It seeds the four exchange directory records but no unverified native symbols/endpoints and no credentials. No migrations exist or should be created before the owner says pilot.
 
 Keep three identifiers distinct: canonical output symbol in `markets.code` (e.g. `BTCTMN`), venue-native pair in `exchange_markets.native_symbol` (e.g. `btc-Toman`), and normalized output timeframe vs `source_interval_code`. `market_data_samples` records `collected_at_ms` separately from source candle open/close times. Numeric values remain decimal strings. Verify quote/volume units and whether TMN means toman or rial; never assume.
 
@@ -44,14 +47,16 @@ Endpoint configuration is declarative: method, path, headers/query/body template
 - Main branch contains the JavaScript backend/static-client restructure and GPL-3.0 license retained from the repository.
 - Database bootstrap is intentionally deferred; `server/db/bootstrap.sql` is the sole initial schema source and has not been run.
 - The backend routes and UI are starter scaffolding. **No real exchange adapter/collector is active yet.**
+- Client UI supports Persian/English toggle and displays exchange type. Read API fields expose bilingual venue metadata. Authentication/token schema and contract are documented, but the current router still does not enforce auth; implement before pilot or any write routes.
+- Official API research is recorded in `docs/exchange-api-configuration.md`: Nobitex, Wallex and Bitpin have public market data endpoints; VisaPay website displays live OTC quote/market information but no public developer API docs were found. Do not scrape VisaPay; request their official integration API before enabling collection.
 - `GET /api/v1/estimates/usdt-tmn` currently returns `not_configured`; do not describe it as a working estimate.
 - API routes: `/api/v1/exchanges`, `/api/v1/markets`, `/api/v1/timeframes`, `/api/v1/quotes/latest`, `/api/v1/quotes/series`, `/api/v1/estimates/usdt-tmn`, and `/health`.
 - Cloudflare database ID is a placeholder in `server/wrangler.jsonc`. No Cloudflare deployment is configured yet.
 
 ## Next required decisions/work
 
-1. Ask which 2–5 exchanges to support first; verify official public API docs, native pair symbols, OHLCV semantics, candle-frame codes, quote/volume units, request limits, and Cloudflare reachability.
-2. Implement the generic configurable REST/JSON collector and a small custom adapter per exceptional venue; keep orchestration, persistence, API routing, and estimation separate.
-3. Implement atomic observation + latest-quote updates, per-exchange failure tracking, and a real USDT/TMN estimate with transparent inputs/age/quality flags.
-4. Add retention/rollups before history grows; then improve the client UI and publish the complete API docs.
-5. Deploy only after account/database IDs and verified adapters are available. Never commit secrets.
+1. Implement login and bearer-token issuance/validation, scope checks, and authenticated configuration CRUD routes before pilot or public writable APIs.
+2. Verify venue-specific native pair symbols, OHLCV semantics, candle-frame codes, quote/volume units, request limits, and Cloudflare reachability; get VisaPay integration docs before its collector can be enabled.
+3. Implement the generic configurable REST/JSON collector and small custom adapters for exceptions; keep orchestration, persistence, API routing, and estimate separate.
+4. Implement atomic observation/latest-quote updates, per-exchange failure tracking, and the USDT/TMN estimate with transparent inputs, age, and quality flags.
+5. Add retention/rollups before history grows; complete bilingual UI/docs; deploy only after IDs and verified adapters are available. Never commit secrets.

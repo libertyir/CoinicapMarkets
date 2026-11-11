@@ -14,6 +14,9 @@ The complete fresh-database schema is in `server/db/bootstrap.sql`. Before pilot
 | `exchange_api_endpoints` | Dynamic HTTP method/path, headers/query/body templates, response paths/field mappings, timeout, polling and secret references. One exchange may have multiple endpoints. |
 | `timeframes` | Product-owned normalized periods such as `5m`, `15m`, and `1h`. Add new periods as rows. |
 | `exchange_market_timeframes` | Maps each exchange-market and output timeframe to its endpoint and venue-native interval code. |
+| `users` / `api_tokens` | Login identities and revocable, scoped API tokens. Passwords use salted PBKDF2 hashes; only hashes of random bearer tokens are stored. |
+
+Exchange records include `exchange_type` (`cex`, `otc`, or `hybrid`) plus Persian and English names/descriptions. Assets, markets, and contact labels have matching localized fields. Client-visible text should be translated in the client; API metadata returns both language values so clients can select locally.
 
 The three symbols must remain separate:
 
@@ -33,4 +36,8 @@ Fields: `price`, `open_price`, `close_price`, `volume`, `top_price`, `low_price`
 
 `response_field_map_json` maps normalized fields to simple JSON paths, e.g. `{ "price": "data.close", "open": "data.open", "volume": "data.volume", "top_price": "data.high", "low_price": "data.low", "source_open_time_ms": "data.start" }`. Request templates may substitute only documented values such as `{native_symbol}` and `{source_interval}`. Never store executable JavaScript or secret values in D1. `secret_refs_json` holds Cloudflare secret names/references, not their values. Validate endpoint paths against each configured HTTPS API base URL.
 
-Suggested future tables (only when needed): rollup candles for compact long-term history, API-client credentials/rate plans, and versioned `forecast_runs`/`forecasts` isolated from observations.
+Suggested future tables (only when needed): rollup candles for compact long-term history, API-client rate plans, and versioned `forecast_runs`/`forecasts` isolated from observations.
+
+## Authentication and permissions
+
+The bootstrap prepares `users` and `api_tokens`; it does not insert a default login or secret. Login/token issuance and scoped management routes must be implemented before accepting writes. Public market reads may remain anonymous for the website; authenticated API consumers can use bearer tokens for identity and quotas. All write/configuration endpoints require an unexpired token with an appropriate scope, and exchange/market administration requires the `admin` role. Collector writes run inside the scheduled Worker and are not exposed as a public ingestion route. Never put a server token in browser JavaScript.

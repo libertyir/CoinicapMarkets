@@ -14,11 +14,13 @@ async function routeApi(request, env) {
   if (url.pathname === "/api/v1/exchanges") {
     return cachedJson(request, async () => {
       const rows = await env.DB.prepare(`
-        SELECT e.code, e.name, e.description, e.website_url, e.documentation_url,
+        SELECT e.code, e.name, e.name_fa, e.name_en, e.exchange_type,
+               e.description, e.description_fa, e.description_en, e.website_url, e.documentation_url,
                e.support_url, e.support_email, e.status_page_url, e.logo_url, e.country_code,
                e.display_order,
                (SELECT json_group_array(json_object(
-                 'type', c.contact_type, 'label', c.label, 'value', c.value
+                 'type', c.contact_type, 'label', c.label,
+                 'label_fa', c.label_fa, 'label_en', c.label_en, 'value', c.value
                )) FROM exchange_contacts c WHERE c.exchange_id=e.id AND c.is_public=1) AS contacts_json
         FROM exchanges e WHERE e.enabled=1 ORDER BY e.display_order, e.code
       `).all();
@@ -32,7 +34,10 @@ async function routeApi(request, env) {
   if (url.pathname === "/api/v1/markets") {
     return cachedJson(request, async () => {
       const rows = await env.DB.prepare(`
-        SELECT m.code, b.code AS base_asset, q.code AS quote_asset, m.display_order, m.price_precision
+        SELECT m.code, m.display_name_fa, m.display_name_en,
+               b.code AS base_asset, b.name_fa AS base_name_fa, b.name_en AS base_name_en,
+               q.code AS quote_asset, q.name_fa AS quote_name_fa, q.name_en AS quote_name_en,
+               m.display_order, m.price_precision
         FROM markets m JOIN assets b ON b.id=m.base_asset_id JOIN assets q ON q.id=m.quote_asset_id
         WHERE m.enabled=1 AND b.enabled=1 AND q.enabled=1 ORDER BY m.display_order, m.code
       `).all();
@@ -70,7 +75,9 @@ async function routeApi(request, env) {
           ) AS row_num
           FROM market_data_samples s
         )
-        SELECT e.code AS exchange, e.name AS exchange_name, s.output_market_symbol AS market,
+        SELECT e.code AS exchange, e.name AS exchange_name, e.name_fa AS exchange_name_fa,
+               e.name_en AS exchange_name_en, e.exchange_type,
+               s.output_market_symbol AS market,
                s.native_symbol AS exchange_symbol, tf.code AS timeframe,
                b.code AS base_asset, q.code AS quote_asset, s.price,
                s.open_price, s.close_price, s.volume, s.top_price, s.low_price,
@@ -135,7 +142,7 @@ export async function route(request, env) {
   const response = await routeApi(request, env);
   const headers = new Headers(response.headers);
   headers.set("access-control-allow-origin", "*");
-  headers.set("access-control-allow-methods", "GET, OPTIONS");
-  headers.set("access-control-allow-headers", "Content-Type");
+  headers.set("access-control-allow-methods", "GET, POST, PATCH, DELETE, OPTIONS");
+  headers.set("access-control-allow-headers", "Content-Type, Authorization");
   return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
 }
