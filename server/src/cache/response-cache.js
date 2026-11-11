@@ -1,8 +1,8 @@
 const TTL_SECONDS = 300;
 const MAX_LOCAL_ENTRIES = 256;
-const local = new Map<string, { expiresAt: number; response: Response }>();
+const local = new Map();
 
-function remember(key: string, response: Response, expiresAt: number): void {
+function remember(key, response, expiresAt) {
   for (const [cachedKey, entry] of local) {
     if (entry.expiresAt <= Date.now()) local.delete(cachedKey);
   }
@@ -21,7 +21,7 @@ export async function cachedJson(request, load, ttlSeconds = TTL_SECONDS) {
   if (localEntry && localEntry.expiresAt > now)
     return localEntry.response.clone();
 
-  let edgeHit: Response | undefined;
+  let edgeHit;
   try {
     edgeHit = await caches.default.match(key);
   } catch {
