@@ -1,0 +1,2 @@
+# CoinicapMarkets
+Coinicap Market Manager
