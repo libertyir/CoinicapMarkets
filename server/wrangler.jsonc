@@ -1,0 +1,16 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "coinicap-markets-api",
+  "main": "src/index.js",
+  "compatibility_date": "2026-11-11",
+  "observability": { "enabled": true },
+  "triggers": { "crons": ["*/5 * * * *"] },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "coinicap-markets",
+      "database_id": "REPLACE_WITH_D1_DATABASE_ID",
+      "migrations_dir": "migrations"
+    }
+  ]
+}

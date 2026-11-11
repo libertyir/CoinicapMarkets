@@ -1,0 +1,15 @@
+{
+  "name": "coinicap-markets-api",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "db:local": "wrangler d1 migrations apply coinicap-markets --local",
+    "db:remote": "wrangler d1 migrations apply coinicap-markets --remote"
+  },
+  "devDependencies": {
+    "wrangler": "^4.45.0"
+  }
+}

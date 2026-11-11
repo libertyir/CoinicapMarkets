@@ -1,0 +1,76 @@
+openapi: 3.1.0
+info:
+  title: Coinicap Markets API
+  version: 1.0.0
+  description: Read-only aggregated market data. Responses are cached for up to five minutes.
+servers:
+  - url: https://{worker-host}
+    variables:
+      worker-host:
+        default: coinicap-markets.example.workers.dev
+paths:
+  /health:
+    get:
+      summary: Liveness check
+      responses:
+        '200':
+          description: Worker is responding
+  /api/v1/exchanges:
+    get:
+      summary: List enabled exchanges
+      responses:
+        '200':
+          description: Enabled exchange list
+  /api/v1/markets:
+    get:
+      summary: List enabled canonical markets
+      responses:
+        '200':
+          description: Enabled markets
+  /api/v1/quotes/latest:
+    get:
+      summary: Get last known good quotes
+      parameters:
+        - in: query
+          name: exchange
+          schema: { type: string }
+        - in: query
+          name: market
+          schema: { type: string }
+      responses:
+        '200':
+          description: Latest quotes with timestamps and age
+  /api/v1/quotes/series:
+    get:
+      summary: Get a bounded quote history
+      parameters:
+        - in: query
+          name: exchange
+          required: true
+          schema: { type: string }
+        - in: query
+          name: market
+          required: true
+          schema: { type: string }
+        - in: query
+          name: from
+          required: true
+          description: Inclusive Unix timestamp in milliseconds
+          schema: { type: integer }
+        - in: query
+          name: to
+          required: true
+          description: Inclusive Unix timestamp in milliseconds; maximum range is 90 days
+          schema: { type: integer }
+      responses:
+        '200':
+          description: Historical observations
+        '400':
+          description: Invalid parameters
+  /api/v1/estimates/usdt-tmn:
+    get:
+      summary: Direct and estimated USDT/TMN rates
+      description: Reserved contract; returns not_configured until verified source adapters and calculation rules are enabled.
+      responses:
+        '200':
+          description: Estimate status and inputs
