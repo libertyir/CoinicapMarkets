@@ -5,6 +5,7 @@ import { listExchanges } from "./controllers/exchange.controller.js";
 import { listAssets, listPairs, listTimeframes, listExchangePairs } from "./controllers/market.controller.js";
 import { latestQuotes, quoteSeries } from "./controllers/quote.controller.js";
 import { latestAggregates, aggregateSeries } from "./controllers/aggregate.controller.js";
+import { chartConfig, chartSymbols, chartSearch, chartHistory } from "./controllers/chart.controller.js";
 import {
   listIndexes, latestIndex, indexComponents, indexExchanges, indexSeries,
 } from "./controllers/index.controller.js";
@@ -25,6 +26,10 @@ async function dispatch(request, app) {
   if (path === "/api/v1/quotes/series") return quoteSeries(request, app);
   if (path === "/api/v1/aggregates/latest") return latestAggregates(request, app);
   if (path === "/api/v1/aggregates/series") return aggregateSeries(request, app);
+  if (path === "/api/v1/charting/config") return chartConfig();
+  if (path === "/api/v1/charting/symbols") return chartSymbols(request, app);
+  if (path === "/api/v1/charting/search") return chartSearch(request, app);
+  if (path === "/api/v1/charting/history") return chartHistory(request, app);
 
   const segments = path.split("/").filter(Boolean);
   if (path === "/api/v1/indices") return listIndexes(request, app);

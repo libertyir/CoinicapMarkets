@@ -54,6 +54,7 @@ Endpoint configuration is declarative: method, path, headers/query/body template
 - Official API research is recorded in `docs/exchange-api-configuration.md`: Nobitex, Wallex and Bitpin have public market data endpoints; VisaPay website displays live OTC quote/market information but no public developer API docs were found. Do not scrape VisaPay; request their official integration API before enabling collection.
 - `/api/v1/estimates/usdt-tmn` is a legacy alias to configurable index code `USDTTMN`. The generic route returns `no_data` until collector samples and recomputed rows exist; do not describe an empty estimate as a working quote.
 - Read APIs are split by section: `/api/v1/exchanges`, `/api/v1/assets`, `/api/v1/markets`, `/api/v1/exchange-markets`, `/api/v1/timeframes`, `/api/v1/quotes/latest`, `/api/v1/quotes/series`, `/api/v1/aggregates/latest`, `/api/v1/aggregates/series`, `/api/v1/indices`, `/api/v1/indices/{code}`, `/api/v1/indices/{code}/components`, `/api/v1/indices/{code}/exchanges`, `/api/v1/indices/{code}/series`, and `/health`. Historical endpoints enforce a 90-day range. Legacy `estimates/usdt-tmn` paths alias index code `USDTTMN`.
+- TradingView-compatible UDF datafeed routes are `/api/v1/charting/config`, `/search`, `/symbols`, and `/history`. Supported resolutions currently map to 5m, 15m, 1h, and 1d. No realtime streaming route exists yet; chart history uses collected source candles.
 - Cloudflare database ID is a placeholder in `server/wrangler.jsonc`. No Cloudflare deployment is configured yet.
 
 ## Next required decisions/work

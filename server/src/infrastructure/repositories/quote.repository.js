@@ -59,6 +59,43 @@ export class QuoteRepository {
     return result.results.map((row) => new MarketSample(row));
   }
 
+  async chartSymbols(search = "") {
+    const result = await this.db.prepare(`
+      SELECT DISTINCT m.code AS symbol, m.display_name_en AS description,
+             tf.code AS timeframe, tf.duration_seconds
+      FROM markets m JOIN exchange_markets em ON em.market_id=m.id AND em.enabled=1
+      JOIN exchanges e ON e.id=em.exchange_id AND e.enabled=1
+      JOIN exchange_market_timeframes emt ON emt.exchange_market_id=em.id AND emt.enabled=1
+      JOIN timeframes tf ON tf.id=emt.timeframe_id AND tf.enabled=1
+      WHERE m.enabled=1 AND (?='' OR m.code LIKE '%' || ? || '%')
+      ORDER BY m.display_order, tf.duration_seconds LIMIT 200
+    `).bind(search.toUpperCase(), search.toUpperCase()).all();
+    return result.results;
+  }
+
+  async chartBars({ symbol, resolution, from, to, exchange }) {
+    const result = await this.db.prepare(`
+      WITH ranked AS (
+        SELECT s.*, em.exchange_id, e.code AS exchange,
+          ROW_NUMBER() OVER (PARTITION BY em.exchange_id, s.timeframe_id, s.source_open_time_ms
+                             ORDER BY s.collected_at_ms DESC) AS revision
+        FROM market_data_samples s
+        JOIN exchange_markets em ON em.id=s.exchange_market_id AND em.enabled=1
+        JOIN exchanges e ON e.id=em.exchange_id AND e.enabled=1
+        JOIN markets m ON m.id=em.market_id AND m.enabled=1
+        JOIN timeframes tf ON tf.id=s.timeframe_id AND tf.enabled=1
+        WHERE m.code=? AND tf.code=? AND s.source_open_time_ms>=?*1000
+          AND s.source_open_time_ms<=?*1000 AND (? IS NULL OR e.code=?)
+      )
+      SELECT source_open_time_ms/1000 AS time,
+        AVG(CAST(open_price AS REAL)) AS open, MAX(CAST(top_price AS REAL)) AS high,
+        MIN(CAST(low_price AS REAL)) AS low, AVG(CAST(close_price AS REAL)) AS close,
+        SUM(CAST(volume AS REAL)) AS volume
+      FROM ranked WHERE revision=1 GROUP BY source_open_time_ms ORDER BY time LIMIT 5000
+    `).bind(symbol, resolution, from, to, exchange || null, exchange || null).all();
+    return result.results;
+  }
+
   async listFreshForCalculation(cutoffMs) {
     const result = await this.db.prepare(`
       WITH ranked AS (

@@ -4,6 +4,8 @@ import { validateHistoryRange } from "../validation/history-range.js";
 export class QuoteService {
   constructor(repository) { this.repository = repository; }
   latest(filters) { return this.repository.listLatest(filters); }
+  chartSymbols(search) { return this.repository.chartSymbols(search); }
+  chartBars(filters) { return this.repository.chartBars(filters); }
 
   series(filters) {
     const { exchange, market, timeframe, from, to } = filters;

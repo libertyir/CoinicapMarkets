@@ -35,6 +35,17 @@ Market aggregate fields: `price`, `open_price`, and `close_price` are arithmetic
 
 `market_data_samples` preserves every observation; `computed_market_samples`, `price_index_component_samples`, and `price_index_samples` preserve calculated history. Only inputs collected within six minutes are used in a current recomputation. Component rows include source IDs/timestamps so consumers can audit freshness.
 
+## TradingView UDF datafeed
+
+| Route | Purpose |
+|---|---|
+| `GET /api/v1/charting/config` | UDF capabilities and supported resolutions. |
+| `GET /api/v1/charting/search?query=BTC` | Search canonical market symbols. |
+| `GET /api/v1/charting/symbols?symbol=BTCTMN` | Symbol metadata and enabled intervals. |
+| `GET /api/v1/charting/history?symbol=BTCTMN&resolution=5&from=MS&to=MS&exchange=nobitex` | UDF candle history; omit exchange to aggregate enabled exchanges. |
+
+History resolution codes are `5`, `15`, `60`, and `1D`; responses follow TradingView UDF (`s,t,o,h,l,c,v`). A row represents the latest collected revision of each source candle per exchange; cross-exchange bars average open/close, use max high/min low, and sum volume. The collector must populate source candle timestamps and OHLCV before this endpoint can return bars. No streaming endpoint is provided yet; chart refresh is polling/history-only.
+
 ## Authentication
 
 The intended contract requires `Authorization: Bearer <token>` for API data and configuration calls except `/health` and login/token issuance. Read scope permits data access; admin scope permits configuration changes. The current router has not implemented login, token validation, or write routes yet. Do not treat the API as authenticated and do not expose writable routes before access checks are implemented. The collector writes internally; there is no public data-ingest endpoint.
