@@ -7,6 +7,7 @@ import { latestQuotes, quoteSeries } from "./controllers/quote.controller.js";
 import { latestAggregates, aggregateSeries } from "./controllers/aggregate.controller.js";
 import { chartConfig, chartSymbols, chartSearch, chartHistory } from "./controllers/chart.controller.js";
 import { bootstrapAdmin, login, listPolicies, updatePolicy, createAccount, listUsers, listTokens, revokeToken } from "./controllers/access.controller.js";
+import { importHistoryJson } from "./controllers/history-sync.controller.js";
 
 function accessKey(path) {
   const fixed={"/api/v1/exchanges":"exchanges.list","/api/v1/assets":"assets.list",
@@ -56,6 +57,11 @@ async function dispatch(request, app, env) {
     const user=await app.access.authenticate(request);
     if (user?.role!=="admin") return json({error:"admin_required"},user?403:401);
     return listTokens(app);
+  }
+  if (path==="/api/v1/admin/history-sync/import-json" && request.method==="POST") {
+    const user=await app.access.authenticate(request);
+    if (user?.role!=="admin") return json({error:"admin_required"},user?403:401);
+    return importHistoryJson(request,app);
   }
   const revokeMatch=path.match(/^\/api\/v1\/admin\/tokens\/(\d+)\/revoke$/);
   if (revokeMatch) {

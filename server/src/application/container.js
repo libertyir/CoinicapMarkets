@@ -12,6 +12,8 @@ import { IndexRepository } from "../infrastructure/repositories/index.repository
 import { DerivedDataRepository } from "../infrastructure/repositories/derived-data.repository.js";
 import { AccessRepository } from "../infrastructure/repositories/access.repository.js";
 import { AccessService } from "./services/access.service.js";
+import { HistorySyncService } from "./services/history-sync.service.js";
+import { HistorySyncRepository } from "../infrastructure/repositories/history-sync.repository.js";
 
 export function createApplication(env) {
   const exchanges = new ExchangeRepository(env.DB);
@@ -21,6 +23,7 @@ export function createApplication(env) {
   const indexes = new IndexRepository(env.DB);
   const derived = new DerivedDataRepository(env.DB);
   const access = new AccessRepository(env.DB);
+  const historySync = new HistorySyncRepository(env.DB);
   return {
     exchanges: new ExchangeService(exchanges),
     markets: new MarketService(markets),
@@ -30,5 +33,6 @@ export function createApplication(env) {
     derived: new DerivedDataService(quotes, indexes, derived),
     access: new AccessService(access),
     accessRepository: access,
+    historySync: new HistorySyncService(historySync),
   };
 }

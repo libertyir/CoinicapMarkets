@@ -134,6 +134,7 @@ CREATE TABLE IF NOT EXISTS exchange_api_endpoints (
   poll_interval_seconds INTEGER NOT NULL DEFAULT 300 CHECK (poll_interval_seconds >= 300),
   timeout_ms INTEGER NOT NULL DEFAULT 10000 CHECK (timeout_ms BETWEEN 1000 AND 30000),
   requests_per_minute INTEGER NOT NULL DEFAULT 12 CHECK (requests_per_minute > 0),
+  pagination_config_json TEXT NOT NULL DEFAULT '{}',
   created_at_ms INTEGER NOT NULL,
   updated_at_ms INTEGER NOT NULL,
   UNIQUE(exchange_id, endpoint_key)
@@ -193,6 +194,37 @@ CREATE TABLE IF NOT EXISTS collection_runs (
   error_code TEXT,
   error_summary TEXT
 );
+
+-- Resumable historic backfills. One active job per exchange/market/timeframe.
+CREATE TABLE IF NOT EXISTS history_sync_jobs (
+  id TEXT PRIMARY KEY,
+  exchange_id INTEGER NOT NULL REFERENCES exchanges(id),
+  exchange_market_id INTEGER NOT NULL REFERENCES exchange_markets(id),
+  timeframe_id INTEGER NOT NULL REFERENCES timeframes(id),
+  endpoint_id INTEGER NOT NULL REFERENCES exchange_api_endpoints(id),
+  status TEXT NOT NULL DEFAULT 'queued' CHECK (status IN ('queued','running','paused','completed','failed','cancelled')),
+  from_time_ms INTEGER NOT NULL,
+  to_time_ms INTEGER NOT NULL,
+  cursor_json TEXT NOT NULL DEFAULT '{}',
+  pages_fetched INTEGER NOT NULL DEFAULT 0,
+  rows_imported INTEGER NOT NULL DEFAULT 0,
+  last_error TEXT,
+  created_by INTEGER REFERENCES users(id),
+  created_at_ms INTEGER NOT NULL,
+  updated_at_ms INTEGER NOT NULL,
+  completed_at_ms INTEGER,
+  CHECK (from_time_ms < to_time_ms)
+);
+CREATE INDEX IF NOT EXISTS idx_history_sync_queue ON history_sync_jobs(status, updated_at_ms);
+
+CREATE TABLE IF NOT EXISTS history_sync_events (
+  id INTEGER PRIMARY KEY,
+  job_id TEXT NOT NULL REFERENCES history_sync_jobs(id) ON DELETE CASCADE,
+  event_type TEXT NOT NULL,
+  details_json TEXT NOT NULL DEFAULT '{}',
+  created_at_ms INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_history_sync_events_job ON history_sync_events(job_id, created_at_ms);
 CREATE INDEX IF NOT EXISTS idx_collection_runs_recent ON collection_runs(started_at_ms DESC);
 
 -- Materialized snapshots are recalculated after successful exchange fetches.

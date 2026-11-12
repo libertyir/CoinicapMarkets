@@ -1,0 +1,20 @@
+{
+  "format": "coinicap.history.v1",
+  "exchange": "nobitex",
+  "market": "BTCTMN",
+  "timeframe": "15m",
+  "candles": [
+    {
+      "time_ms": 1794355200000,
+      "close_time_ms": 1794356099999,
+      "source_time_ms": 1794356100000,
+      "source_interval_code": "15",
+      "open": "3245000000",
+      "high": "3252000000",
+      "low": "3240000000",
+      "close": "3249000000",
+      "volume": "0.027",
+      "value": "87723000"
+    }
+  ]
+}
