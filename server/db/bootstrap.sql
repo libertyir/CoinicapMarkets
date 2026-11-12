@@ -291,6 +291,25 @@ CREATE TABLE IF NOT EXISTS api_tokens (
 );
 CREATE INDEX IF NOT EXISTS idx_api_tokens_user ON api_tokens(user_id, enabled);
 
+CREATE TABLE IF NOT EXISTS api_access_policies (
+  route_key TEXT PRIMARY KEY,
+  is_public INTEGER NOT NULL DEFAULT 0 CHECK (is_public IN (0, 1)),
+  enabled INTEGER NOT NULL DEFAULT 1 CHECK (enabled IN (0, 1)),
+  updated_at_ms INTEGER NOT NULL,
+  updated_by INTEGER REFERENCES users(id)
+);
+
+INSERT OR IGNORE INTO api_access_policies (route_key, is_public, enabled, updated_at_ms) VALUES
+ ('exchanges.list',1,1,unixepoch()*1000), ('assets.list',1,1,unixepoch()*1000),
+ ('markets.list',1,1,unixepoch()*1000), ('exchange-markets.list',1,1,unixepoch()*1000),
+ ('timeframes.list',1,1,unixepoch()*1000), ('quotes.latest',1,1,unixepoch()*1000),
+ ('quotes.series',1,1,unixepoch()*1000), ('aggregates.latest',1,1,unixepoch()*1000),
+ ('aggregates.series',1,1,unixepoch()*1000), ('indices.list',1,1,unixepoch()*1000),
+ ('indices.latest',1,1,unixepoch()*1000), ('indices.components',1,1,unixepoch()*1000),
+ ('indices.exchanges',1,1,unixepoch()*1000), ('indices.series',1,1,unixepoch()*1000),
+ ('charting.config',1,1,unixepoch()*1000), ('charting.search',1,1,unixepoch()*1000),
+ ('charting.symbols',1,1,unixepoch()*1000), ('charting.history',1,1,unixepoch()*1000);
+
 -- Canonical starting assets and markets. Exchange rows/native symbols are configured later.
 INSERT OR IGNORE INTO assets (code, name, asset_type, name_fa, name_en, enabled, display_order, created_at_ms, updated_at_ms) VALUES
   ('BTC', 'Bitcoin', 'crypto', 'بیت‌کوین', 'Bitcoin', 1, 10, unixepoch() * 1000, unixepoch() * 1000),
